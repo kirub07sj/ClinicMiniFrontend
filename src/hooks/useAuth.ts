@@ -1,15 +1,11 @@
-import { useContext } from 'react';
-import { AuthContext } from '../context/AuthContext';
+import useAuthStore from '../stores/useAuthStore';
 
 /**
- * Custom hook to consume the AuthContext safely
+ * Custom hook to consume the Auth store safely
+ * This wraps the Zustand store for backward compatibility
  */
 export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
+  return useAuthStore();
 };
 
 export default useAuth;

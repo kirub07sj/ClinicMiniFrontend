@@ -1,14 +1,23 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
+import { useNavigate } from 'react-router-dom';
+import useAuthStore from '../stores/useAuthStore';
 
 export const Login: React.FC = () => {
-  const { login } = useAuth();
+  const { login } = useAuthStore();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const getRedirectPath = (role: string): string => {
+    switch (role) {
+      case 'admin': return '/admin';
+      case 'doctor': return '/doctor';
+      case 'receptionist': return '/receptionist';
+      default: return '/';
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -17,7 +26,9 @@ export const Login: React.FC = () => {
 
     try {
       await login({ email, password });
-      navigate('/');
+      // Read updated user from store after login
+      const user = useAuthStore.getState().user;
+      navigate(getRedirectPath(user?.role || ''));
     } catch (err: any) {
       setError(err.response?.data?.message || 'Login failed. Please check your credentials.');
     } finally {
@@ -28,8 +39,8 @@ export const Login: React.FC = () => {
   return (
     <div>
       <div className="text-center mb-8">
-        <h2 className="text-3xl font-extrabold text-slate-800">Welcome Back</h2>
-        <p className="text-slate-500 mt-2">Sign in to your Clinic account</p>
+        <h2 className="text-3xl font-extrabold text-slate-800">Clinic Portal</h2>
+        <p className="text-slate-500 mt-2">Sign in to access your dashboard</p>
       </div>
 
       {error && (
@@ -47,7 +58,7 @@ export const Login: React.FC = () => {
             onChange={(e) => setEmail(e.target.value)}
             required
             className="w-full px-4 py-3 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent text-slate-800"
-            placeholder="name@example.com"
+            placeholder="name@clinic.com"
           />
         </div>
 
@@ -72,11 +83,8 @@ export const Login: React.FC = () => {
         </button>
       </form>
 
-      <div className="mt-8 text-center text-sm text-slate-600">
-        Don't have an account?{' '}
-        <Link to="/register" className="font-semibold text-sky-600 hover:text-sky-700 transition-colors">
-          Register here
-        </Link>
+      <div className="mt-8 text-center text-xs text-slate-400">
+        Contact your system administrator for account access
       </div>
     </div>
   );
