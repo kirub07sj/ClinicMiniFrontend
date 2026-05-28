@@ -23,6 +23,8 @@ export const StaffRegistrationModal: React.FC<Props> = ({ isOpen, onClose, onSub
 
     if (!name.trim() || name.trim().length < 2) {
       newErrors.name = 'Name must be at least 2 characters';
+    } else if (!/^[a-zA-Z\s'-]+$/.test(name.trim())) {
+      newErrors.name = 'Name must contain only letters, spaces, hyphens, or apostrophes';
     }
     if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       newErrors.email = 'Enter a valid email address';
@@ -31,7 +33,7 @@ export const StaffRegistrationModal: React.FC<Props> = ({ isOpen, onClose, onSub
       newErrors.password = 'Password must be at least 6 characters';
     }
     if (phone && !/^[0-9+\-() ]{7,15}$/.test(phone.trim())) {
-      newErrors.phone = 'Enter a valid phone number';
+      newErrors.phone = 'Enter a valid phone number (7-15 digits)';
     }
     if (role === 'doctor' && !specialization.trim()) {
       newErrors.specialization = 'Specialization is required for doctors';
