@@ -85,7 +85,11 @@ export const StaffRegistrationModal: React.FC<Props> = ({ isOpen, onClose, onSub
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1">Full Name *</label>
-            <input type="text" value={name} onChange={(e) => setName(e.target.value)}
+            <input type="text" value={name} 
+              onChange={(e) => {
+                const val = e.target.value;
+                if (/^[a-zA-Z\s'-]*$/.test(val)) setName(val);
+              }}
               className={`w-full border rounded-lg p-2.5 text-sm ${errors.name ? 'border-rose-400' : 'border-slate-300'}`}
               placeholder="Dr. Jane Smith" />
             {errors.name && <p className="text-rose-500 text-xs mt-1">{errors.name}</p>}
@@ -119,7 +123,11 @@ export const StaffRegistrationModal: React.FC<Props> = ({ isOpen, onClose, onSub
 
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">Phone</label>
-              <input type="text" value={phone} onChange={(e) => setPhone(e.target.value)}
+              <input type="text" value={phone} 
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (/^[0-9+\-() ]*$/.test(val)) setPhone(val);
+                }}
                 className={`w-full border rounded-lg p-2.5 text-sm ${errors.phone ? 'border-rose-400' : 'border-slate-300'}`}
                 placeholder="+251 9XX" />
               {errors.phone && <p className="text-rose-500 text-xs mt-1">{errors.phone}</p>}
