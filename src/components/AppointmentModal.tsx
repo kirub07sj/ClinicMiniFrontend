@@ -259,7 +259,11 @@ export const AppointmentModal: React.FC<Props> = ({
                       >
                         <div>
                           <label className="block text-sm font-semibold text-slate-700 mb-1.5">Full Name *</label>
-                          <input type="text" value={name} onChange={(e) => setName(e.target.value)}
+                          <input type="text" value={name} 
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (/^[a-zA-Z\s'-]*$/.test(val)) setName(val);
+                            }}
                             className={inputClasses(!!errors.name)}
                             placeholder="John Doe" />
                           {errors.name && <p className="text-rose-500 text-xs font-medium mt-1.5">{errors.name}</p>}
@@ -267,7 +271,11 @@ export const AppointmentModal: React.FC<Props> = ({
 
                         <div>
                           <label className="block text-sm font-semibold text-slate-700 mb-1.5">Phone Number *</label>
-                          <input type="text" value={phone} onChange={(e) => setPhone(e.target.value)}
+                          <input type="text" value={phone} 
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (/^[0-9+\-() ]*$/.test(val)) setPhone(val);
+                            }}
                             className={inputClasses(!!errors.phone)}
                             placeholder="+251 912 345 678" />
                           {errors.phone && <p className="text-rose-500 text-xs font-medium mt-1.5">{errors.phone}</p>}
