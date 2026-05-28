@@ -7,6 +7,11 @@ export const adminService = {
     return response.data;
   },
 
+  updateStaff: async (id: string, staffData: any): Promise<{ user: User }> => {
+    const response = await api.put<{ user: User }>(`/admin/staff/${id}`, staffData);
+    return response.data;
+  },
+
   getAllStaff: async (): Promise<User[]> => {
     const response = await api.get<User[]>('/admin/staff');
     return response.data;

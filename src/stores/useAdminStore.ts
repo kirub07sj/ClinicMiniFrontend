@@ -9,6 +9,7 @@ interface AdminState {
   fetchStaff: () => Promise<void>;
   fetchStats: () => Promise<void>;
   registerStaff: (data: any) => Promise<void>;
+  updateStaff: (id: string, data: any) => Promise<void>;
 }
 
 export const useAdminStore = create<AdminState>((set) => ({
@@ -39,6 +40,13 @@ export const useAdminStore = create<AdminState>((set) => ({
     const result = await adminService.registerStaff(data);
     set((state) => ({
       staff: [result.user, ...state.staff]
+    }));
+  },
+
+  updateStaff: async (id: string, data: any) => {
+    const result = await adminService.updateStaff(id, data);
+    set((state) => ({
+      staff: state.staff.map(user => user._id === id || user.id === id ? { ...user, ...result.user } : user)
     }));
   }
 }));

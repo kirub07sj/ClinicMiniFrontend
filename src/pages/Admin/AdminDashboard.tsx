@@ -1,11 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import useAdminStore from '../../stores/useAdminStore';
 import StaffRegistrationModal from '../../components/StaffRegistrationModal';
-import { Users, Stethoscope, UserCheck, Calendar, UserPlus } from 'lucide-react';
+import EditStaffModal from '../../components/EditStaffModal';
+import { Users, Stethoscope, UserCheck, Calendar, UserPlus, Pencil } from 'lucide-react';
+import { User } from '../../types';
 
 export const AdminDashboard: React.FC = () => {
-  const { staff, stats, loading, fetchStaff, fetchStats, registerStaff } = useAdminStore();
-  const [showModal, setShowModal] = useState(false);
+  const { staff, stats, loading, fetchStaff, fetchStats, registerStaff, updateStaff } = useAdminStore();
+  const [showRegisterModal, setShowRegisterModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedStaff, setSelectedStaff] = useState<User | null>(null);
 
   useEffect(() => {
     fetchStaff();
@@ -17,6 +21,15 @@ export const AdminDashboard: React.FC = () => {
     fetchStats(); // Refresh stats after adding staff
   };
 
+  const handleUpdateStaff = async (id: string, data: any) => {
+    await updateStaff(id, data);
+  };
+
+  const openEditModal = (user: User) => {
+    setSelectedStaff(user);
+    setShowEditModal(true);
+  };
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -25,7 +38,7 @@ export const AdminDashboard: React.FC = () => {
           <h2 className="text-2xl font-bold text-slate-800">Admin Dashboard</h2>
           <p className="text-slate-500 text-sm">Manage clinic staff and monitor system activity</p>
         </div>
-        <button onClick={() => setShowModal(true)}
+        <button onClick={() => setShowRegisterModal(true)}
           className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white font-semibold text-sm shadow-md transition-all">
           <UserPlus className="w-4 h-4" />
           <span>Register Staff</span>
@@ -97,6 +110,7 @@ export const AdminDashboard: React.FC = () => {
                   <th className="text-left px-6 py-3 font-semibold">Role</th>
                   <th className="text-left px-6 py-3 font-semibold">Specialization</th>
                   <th className="text-left px-6 py-3 font-semibold">Phone</th>
+                  <th className="text-center px-6 py-3 font-semibold">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
@@ -114,6 +128,15 @@ export const AdminDashboard: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 text-slate-600">{member.specialization || '—'}</td>
                     <td className="px-6 py-4 text-slate-600">{member.phone || '—'}</td>
+                    <td className="px-6 py-4 text-center">
+                      <button 
+                        onClick={() => openEditModal(member)}
+                        className="p-2 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors inline-flex items-center justify-center"
+                        title="Edit Staff"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -124,9 +147,20 @@ export const AdminDashboard: React.FC = () => {
 
       {/* Staff Registration Modal */}
       <StaffRegistrationModal
-        isOpen={showModal}
-        onClose={() => setShowModal(false)}
+        isOpen={showRegisterModal}
+        onClose={() => setShowRegisterModal(false)}
         onSubmit={handleRegisterStaff}
+      />
+
+      {/* Edit Staff Modal */}
+      <EditStaffModal
+        isOpen={showEditModal}
+        onClose={() => {
+          setShowEditModal(false);
+          setSelectedStaff(null);
+        }}
+        onSubmit={handleUpdateStaff}
+        initialData={selectedStaff}
       />
     </div>
   );
