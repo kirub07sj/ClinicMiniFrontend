@@ -4,9 +4,9 @@ import useAuthStore from '../stores/useAuthStore';
 import RootLayout from '../layouts/RootLayout';
 import AuthLayout from '../layouts/AuthLayout';
 import Login from '../pages/Login';
-import AdminDashboard from '../pages/AdminDashboard';
-import ReceptionistDashboard from '../pages/ReceptionistDashboard';
-import DoctorDashboard from '../pages/DoctorDashboard';
+import AdminDashboard from '../pages/Admin/AdminDashboard';
+import ReceptionistDashboard from '../pages/Receptions/ReceptionistDashboard';
+import DoctorDashboard from '../pages/Doctors/DoctorDashboard';
 
 const RoleRoute: React.FC<{ children: React.ReactNode, allowedRole: string }> = ({ children, allowedRole }) => {
   const { user, loading } = useAuthStore();

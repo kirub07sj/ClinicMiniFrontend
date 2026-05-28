@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import useAppointmentStore from '../stores/useAppointmentStore';
-import SearchBar from '../components/SearchBar';
-import { formatDate } from '../utils/format';
+import useAppointmentStore from '../../stores/useAppointmentStore';
+import SearchBar from '../../components/SearchBar';
+import { formatDate } from '../../utils/format';
 import { Check, X, FileText, CheckCircle } from 'lucide-react';
+import { Appointment } from '../../types';
 
 export const DoctorDashboard: React.FC = () => {
   const { appointments, loading, fetchAppointments, updateAppointment } = useAppointmentStore();
@@ -16,7 +17,7 @@ export const DoctorDashboard: React.FC = () => {
   }, []);
 
   // Filter appointments by search (patient name, phone, or ID)
-  const filtered = appointments.filter((a) => {
+  const filtered = appointments.filter((a: Appointment) => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
     return (
@@ -72,7 +73,7 @@ export const DoctorDashboard: React.FC = () => {
           </p>
         ) : (
           <div className="divide-y divide-slate-50">
-            {filtered.map((a) => (
+            {filtered.map((a: Appointment) => (
               <div key={a._id} className="p-5 hover:bg-slate-50/50 transition-colors">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   {/* Patient Info */}

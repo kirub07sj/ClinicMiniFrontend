@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import useAdminStore from '../stores/useAdminStore';
-import StaffRegistrationModal from '../components/StaffRegistrationModal';
+import useAdminStore from '../../stores/useAdminStore';
+import StaffRegistrationModal from '../../components/StaffRegistrationModal';
 import { Users, Stethoscope, UserCheck, Calendar, UserPlus } from 'lucide-react';
 
 export const AdminDashboard: React.FC = () => {
@@ -105,11 +105,10 @@ export const AdminDashboard: React.FC = () => {
                     <td className="px-6 py-4 font-medium text-slate-800">{member.name}</td>
                     <td className="px-6 py-4 text-slate-600">{member.email}</td>
                     <td className="px-6 py-4">
-                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase ${
-                        member.role === 'doctor'
+                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase ${member.role === 'doctor'
                           ? 'bg-indigo-50 text-indigo-700 border border-indigo-100'
                           : 'bg-emerald-50 text-emerald-700 border border-emerald-100'
-                      }`}>
+                        }`}>
                         {member.role}
                       </span>
                     </td>
