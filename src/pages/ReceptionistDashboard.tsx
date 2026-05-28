@@ -3,9 +3,8 @@ import usePatientStore from '../stores/usePatientStore';
 import useAppointmentStore from '../stores/useAppointmentStore';
 import SearchBar from '../components/SearchBar';
 import AppointmentModal from '../components/AppointmentModal';
-import PatientRegistrationModal from '../components/PatientRegistrationModal';
 import { formatDate } from '../utils/format';
-import { Stethoscope, UserPlus, CalendarPlus, Users } from 'lucide-react';
+import { Stethoscope, CalendarPlus, Users } from 'lucide-react';
 
 export const ReceptionistDashboard: React.FC = () => {
   const { patients, searchResults, fetchPatients, searchPatients, createPatient } = usePatientStore();
@@ -13,7 +12,6 @@ export const ReceptionistDashboard: React.FC = () => {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [showAppointmentModal, setShowAppointmentModal] = useState(false);
-  const [showPatientModal, setShowPatientModal] = useState(false);
 
   // For appointment modal patient search
   const [modalPatientSearch, setModalPatientSearch] = useState<typeof searchResults>([]);
@@ -44,13 +42,18 @@ export const ReceptionistDashboard: React.FC = () => {
     setModalPatientSearch(filtered);
   }, [patients]);
 
-  const handleCreateAppointment = async (data: any) => {
-    await createAppointment(data);
-    fetchAppointments();
-  };
-
-  const handleCreatePatient = async (data: any) => {
-    await createPatient(data);
+  const handleCreateAppointment = async (appointmentData: any, patientData?: any) => {
+    try {
+      let finalPatientId = appointmentData.patientId;
+      if (patientData) {
+        const newPatient = await createPatient(patientData);
+        finalPatientId = newPatient._id;
+      }
+      await createAppointment({ ...appointmentData, patientId: finalPatientId });
+      fetchAppointments();
+    } catch (err) {
+      throw err;
+    }
   };
 
   return (
@@ -62,11 +65,6 @@ export const ReceptionistDashboard: React.FC = () => {
           <p className="text-slate-500 text-sm">Manage patients and appointments</p>
         </div>
         <div className="flex gap-3">
-          <button onClick={() => setShowPatientModal(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-sm transition-all">
-            <UserPlus className="w-4 h-4" />
-            <span>Register Patient</span>
-          </button>
           <button onClick={() => setShowAppointmentModal(true)}
             className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white font-semibold text-sm shadow-md transition-all">
             <CalendarPlus className="w-4 h-4" />
@@ -216,16 +214,6 @@ export const ReceptionistDashboard: React.FC = () => {
         patients={modalPatientSearch}
         doctors={doctorsWithCounts}
         onSearchPatient={handleModalPatientSearch}
-        onRegisterNewPatient={() => {
-          setShowAppointmentModal(false);
-          setShowPatientModal(true);
-        }}
-      />
-
-      <PatientRegistrationModal
-        isOpen={showPatientModal}
-        onClose={() => setShowPatientModal(false)}
-        onSubmit={handleCreatePatient}
       />
     </div>
   );
