@@ -1,22 +1,48 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import usePatientStore from '../../stores/usePatientStore';
 import useAppointmentStore from '../../stores/useAppointmentStore';
-import SearchBar from '../../components/SearchBar';
 import AppointmentModal from '../../components/AppointmentModal';
-import PageTransition from '../../components/ui/PageTransition';
+import PatientRegistrationModal, { RegistrationPayload } from '../../components/PatientRegistrationModal';
+import DoctorFolderCard from '../../components/DoctorFolderCard';
+import { usePortalSearch } from '../../layouts/PortalLayout';
 import { formatDate } from '../../utils/format';
-import { Stethoscope, CalendarPlus, Users, Loader2 } from 'lucide-react';
+import { CalendarPlus, UserPlus, Loader2 } from 'lucide-react';
 import { Patient, DoctorWithCount, Appointment } from '../../types';
+import { cn } from '../../utils/cn';
+
+type Tab = 'dashboard' | 'patients';
+
+const statusPill = (status: string) => {
+  switch (status) {
+    case 'confirmed':
+      return { label: 'in treatment', className: 'bg-blue-600 text-white' };
+    case 'completed':
+      return { label: 'done', className: 'bg-emerald-500 text-white' };
+    case 'cancelled':
+      return { label: 'cancelled', className: 'bg-rose-500 text-white' };
+    default:
+      return { label: 'waiting', className: 'bg-sky-500 text-white' };
+  }
+};
 
 export const ReceptionistDashboard: React.FC = () => {
-  const { patients, searchResults, fetchPatients, searchPatients, createPatient, loading: patientsLoading } = usePatientStore();
-  const { appointments, doctorsWithCounts, fetchAppointments, fetchDoctorsWithCounts, createAppointment, loading: appointmentsLoading } = useAppointmentStore();
+  const { patients, searchResults, fetchPatients, searchPatients, createPatient, loading: patientsLoading } =
+    usePatientStore();
+  const {
+    appointments,
+    doctorsWithCounts,
+    fetchAppointments,
+    fetchDoctorsWithCounts,
+    createAppointment,
+    loading: appointmentsLoading,
+  } = useAppointmentStore();
 
-  const [searchQuery, setSearchQuery] = useState('');
+  const { searchQuery } = usePortalSearch();
+
+  const [tab, setTab] = useState<Tab>('dashboard');
   const [showAppointmentModal, setShowAppointmentModal] = useState(false);
-
-  // For appointment modal patient search
+  const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [modalPatientSearch, setModalPatientSearch] = useState<typeof searchResults>([]);
 
   useEffect(() => {
@@ -25,7 +51,7 @@ export const ReceptionistDashboard: React.FC = () => {
     fetchDoctorsWithCounts();
   }, []);
 
-  // Debounced search for main table
+  // Navbar search drives the patients table
   useEffect(() => {
     const timer = setTimeout(() => {
       searchPatients(searchQuery);
@@ -33,218 +59,229 @@ export const ReceptionistDashboard: React.FC = () => {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  const handleModalPatientSearch = useCallback((query: string) => {
-    if (!query.trim()) {
-      setModalPatientSearch([]);
-      return;
-    }
-    const q = query.toLowerCase();
-    const filtered = patients.filter(
-      (p: Patient) => p.name.toLowerCase().includes(q) || p.phone.includes(q) || p.patientId.toLowerCase().includes(q)
-    );
-    setModalPatientSearch(filtered);
-  }, [patients]);
+  const handleModalPatientSearch = useCallback(
+    (query: string) => {
+      if (!query.trim()) {
+        setModalPatientSearch([]);
+        return;
+      }
+      const q = query.toLowerCase();
+      setModalPatientSearch(
+        patients.filter(
+          (p: Patient) =>
+            p.name.toLowerCase().includes(q) || p.phone.includes(q) || p.patientId.toLowerCase().includes(q)
+        )
+      );
+    },
+    [patients]
+  );
 
   const handleCreateAppointment = async (appointmentData: any, patientData?: any) => {
-    try {
-      let finalPatientId = appointmentData.patientId;
-      if (patientData) {
-        const newPatient = await createPatient(patientData);
-        finalPatientId = newPatient._id;
-      }
-      await createAppointment({ ...appointmentData, patientId: finalPatientId });
-      fetchAppointments();
-    } catch (err) {
-      throw err;
+    let finalPatientId = appointmentData.patientId;
+    if (patientData) {
+      const newPatient = await createPatient(patientData);
+      finalPatientId = newPatient._id;
     }
+    await createAppointment({ ...appointmentData, patientId: finalPatientId });
+    fetchAppointments();
   };
 
+  // Register patient + assign doctor (creates a pending appointment so the count reflects the assignment)
+  const handleRegister = async (payload: RegistrationPayload) => {
+    const newPatient = await createPatient(payload.patient);
+    await createAppointment({
+      patientId: newPatient._id,
+      doctorId: payload.doctorId,
+      appointmentDate: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      reason: 'Initial consultation',
+      notes: payload.additionalInfo,
+    });
+    fetchAppointments();
+  };
+
+  // Navbar search also filters the Recent Patients (appointments) table
+  const filteredAppointments = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return appointments;
+    return appointments.filter(
+      (a: Appointment) =>
+        a.patientId?.name?.toLowerCase().includes(q) ||
+        a.patientId?.patientId?.toLowerCase().includes(q) ||
+        a.patientId?.phone?.includes(q) ||
+        a.doctorId?.name?.toLowerCase().includes(q)
+    );
+  }, [appointments, searchQuery]);
+
+  const TabButton: React.FC<{ id: Tab; label: string }> = ({ id, label }) => (
+    <button
+      type="button"
+      onClick={() => setTab(id)}
+      className={cn(
+        'px-5 py-2 rounded-lg text-sm font-bold transition-colors',
+        tab === id ? 'bg-sky-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
+      )}
+    >
+      {label}
+    </button>
+  );
+
   return (
-    <PageTransition>
-      <div className="space-y-8">
-        {/* Header */}
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div>
-            <h2 className="text-2xl font-bold text-slate-800">Receptionist Dashboard</h2>
-            <p className="text-slate-500 text-sm mt-1">Manage patients and appointments efficiently</p>
-          </div>
-          <div className="flex gap-3">
-            <motion.button 
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+    <div className="bg-white rounded-2xl shadow-sm p-6 sm:p-8">
+      {/* Tabs + actions */}
+      <div className="flex items-center justify-between flex-wrap gap-3 mb-7">
+        <div className="flex items-center gap-2">
+          <TabButton id="dashboard" label="Dashboard" />
+          <TabButton id="patients" label="Patients" />
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowRegisterModal(true)}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-semibold text-sm shadow-md transition-colors"
+        >
+          <UserPlus className="w-4 h-4" />
+          Register New Patient
+        </button>
+      </div>
+
+      {tab === 'dashboard' ? (
+        <div className="space-y-8">
+          {/* Available Doctors */}
+          <section>
+            <h3 className="text-lg font-bold text-slate-800 mb-4">Available Doctors</h3>
+            {doctorsWithCounts.length === 0 ? (
+              <p className="text-slate-400 text-sm">No doctors registered yet.</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                {doctorsWithCounts.map((doc: DoctorWithCount, i: number) => (
+                  <motion.div
+                    key={doc._id || doc.id}
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.08 }}
+                  >
+                    <DoctorFolderCard doctor={doc} active={i === 0} />
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* Recent Patients */}
+          <section>
+            <h3 className="text-lg font-bold text-slate-800 mb-4">Recent Patients</h3>
+            {appointmentsLoading ? (
+              <div className="flex flex-col items-center justify-center py-14 text-slate-400">
+                <Loader2 className="w-7 h-7 animate-spin mb-2 text-sky-600" />
+                <p className="text-sm font-medium">Loading...</p>
+              </div>
+            ) : filteredAppointments.length === 0 ? (
+              <p className="text-slate-400 text-center py-14 font-medium">No recent patients.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-slate-400 text-left">
+                      <th className="px-4 py-3 font-medium">Full Name</th>
+                      <th className="px-4 py-3 font-medium">Assigned Doctor</th>
+                      <th className="px-4 py-3 font-medium">Patient ID</th>
+                      <th className="px-4 py-3 font-medium">Date &amp; Time</th>
+                      <th className="px-4 py-3 font-medium">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredAppointments.slice(0, 25).map((a: Appointment) => {
+                      const pill = statusPill(a.status);
+                      return (
+                        <tr key={a._id} className="border-t border-slate-100 hover:bg-slate-50/60 transition-colors">
+                          <td className="px-4 py-4 font-bold text-slate-800">{a.patientId?.name}</td>
+                          <td className="px-4 py-4 text-slate-600 font-medium">Dr. {a.doctorId?.name}</td>
+                          <td className="px-4 py-4 font-bold text-slate-800">{a.patientId?.patientId}</td>
+                          <td className="px-4 py-4 text-slate-500">{formatDate(a.appointmentDate)}</td>
+                          <td className="px-4 py-4">
+                            <span className={cn('px-4 py-1.5 rounded-full text-xs font-semibold', pill.className)}>
+                              {pill.label}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        </div>
+      ) : (
+        /* Patients tab */
+        <div className="space-y-5">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <h3 className="text-lg font-bold text-slate-800">All Patients</h3>
+            <button
+              type="button"
               onClick={() => setShowAppointmentModal(true)}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-semibold text-sm shadow-md transition-colors"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-sm transition-colors"
             >
               <CalendarPlus className="w-4 h-4" />
-              <span>New Appointment</span>
-            </motion.button>
+              New Appointment
+            </button>
           </div>
-        </div>
 
-        {/* Doctor Availability */}
-        <div>
-          <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-            <Stethoscope className="w-5 h-5 text-indigo-600" />
-            Available Doctors
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {doctorsWithCounts.length === 0 ? (
-              <p className="text-slate-400 text-sm col-span-full">No doctors registered yet.</p>
-            ) : (
-              doctorsWithCounts.map((doc: DoctorWithCount, i: number) => (
-                <motion.div 
-                  initial={{ opacity: 0, y: 15 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.1 }}
-                  key={doc._id || doc.id} 
-                  className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex items-center gap-4 hover:shadow-md transition-shadow group"
-                >
-                  <div className="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center flex-shrink-0 group-hover:bg-indigo-100 transition-colors">
-                    <Stethoscope className="w-6 h-6 text-indigo-600" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-slate-800 truncate">Dr. {doc.name}</p>
-                    <p className="text-xs text-slate-500">{doc.specialization || 'General'}</p>
-                    <div className="mt-2 flex items-center gap-2">
-                      <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${
-                        doc.activePatientCount === 0
-                          ? 'bg-emerald-50 text-emerald-700'
-                          : doc.activePatientCount <= 5
-                          ? 'bg-sky-50 text-sky-700'
-                          : 'bg-amber-50 text-amber-700'
-                      }`}>
-                        {doc.activePatientCount} active
-                      </span>
-                    </div>
-                  </div>
-                </motion.div>
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* Patient List */}
-        <div>
-          <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-            <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-              <Users className="w-5 h-5 text-sky-600" />
-              Patients
-            </h3>
-            <div className="w-full md:w-80">
-              <SearchBar value={searchQuery} onChange={setSearchQuery} />
+          {patientsLoading ? (
+            <div className="flex flex-col items-center justify-center py-14 text-slate-400">
+              <Loader2 className="w-7 h-7 animate-spin mb-2 text-sky-600" />
+              <p className="text-sm font-medium">Loading patients...</p>
             </div>
-          </div>
-
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-            {patientsLoading ? (
-              <div className="flex flex-col items-center justify-center py-16 text-slate-400">
-                <Loader2 className="w-8 h-8 animate-spin mb-3 text-sky-600" />
-                <p className="text-sm font-medium">Loading patients...</p>
-              </div>
-            ) : searchResults.length === 0 ? (
-              <p className="text-slate-400 text-center py-16 font-medium">
-                {searchQuery ? 'No patients match your search.' : 'No patients registered yet.'}
-              </p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-slate-50/50 text-slate-500 text-xs uppercase tracking-wider">
-                      <th className="text-left px-6 py-4 font-semibold">Patient ID</th>
-                      <th className="text-left px-6 py-4 font-semibold">Name</th>
-                      <th className="text-left px-6 py-4 font-semibold">Phone</th>
-                      <th className="text-left px-6 py-4 font-semibold">Gender</th>
-                      <th className="text-left px-6 py-4 font-semibold">Date of Birth</th>
-                      <th className="text-left px-6 py-4 font-semibold">Email</th>
+          ) : searchResults.length === 0 ? (
+            <p className="text-slate-400 text-center py-14 font-medium">
+              {searchQuery ? 'No patients match your search.' : 'No patients registered yet.'}
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-slate-400 text-left">
+                    <th className="px-4 py-3 font-medium">Patient ID</th>
+                    <th className="px-4 py-3 font-medium">Name</th>
+                    <th className="px-4 py-3 font-medium">Phone</th>
+                    <th className="px-4 py-3 font-medium">Gender</th>
+                    <th className="px-4 py-3 font-medium">Date of Birth</th>
+                    <th className="px-4 py-3 font-medium">Email</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {searchResults.map((p: Patient) => (
+                    <tr key={p._id} className="border-t border-slate-100 hover:bg-slate-50/60 transition-colors">
+                      <td className="px-4 py-4 font-bold text-slate-800">{p.patientId}</td>
+                      <td className="px-4 py-4 font-bold text-slate-800">{p.name}</td>
+                      <td className="px-4 py-4 text-slate-600">{p.phone}</td>
+                      <td className="px-4 py-4 text-slate-600 capitalize">{p.gender}</td>
+                      <td className="px-4 py-4 text-slate-600">{new Date(p.dateOfBirth).toLocaleDateString()}</td>
+                      <td className="px-4 py-4 text-slate-500">{p.email || '—'}</td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {searchResults.map((p: Patient) => (
-                      <tr key={p._id} className="hover:bg-slate-50 transition-colors group">
-                        <td className="px-6 py-4">
-                          <span className="px-2.5 py-1 bg-slate-100 text-slate-700 rounded-md text-xs font-mono font-bold group-hover:bg-white transition-colors border border-transparent group-hover:border-slate-200">{p.patientId}</span>
-                        </td>
-                        <td className="px-6 py-4 font-bold text-slate-800">{p.name}</td>
-                        <td className="px-6 py-4 text-slate-600 font-medium">{p.phone}</td>
-                        <td className="px-6 py-4 text-slate-600 capitalize">{p.gender}</td>
-                        <td className="px-6 py-4 text-slate-600">{new Date(p.dateOfBirth).toLocaleDateString()}</td>
-                        <td className="px-6 py-4 text-slate-500">{p.email || '—'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
+      )}
 
-        {/* Appointment List */}
-        <div>
-          <h3 className="text-lg font-bold text-slate-800 mb-4">Recent Appointments</h3>
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-            {appointmentsLoading ? (
-              <div className="flex flex-col items-center justify-center py-16 text-slate-400">
-                <Loader2 className="w-8 h-8 animate-spin mb-3 text-sky-600" />
-                <p className="text-sm font-medium">Loading appointments...</p>
-              </div>
-            ) : appointments.length === 0 ? (
-              <p className="text-slate-400 text-center py-16 font-medium">No appointments yet.</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-slate-50/50 text-slate-500 text-xs uppercase tracking-wider">
-                      <th className="text-left px-6 py-4 font-semibold">Patient</th>
-                      <th className="text-left px-6 py-4 font-semibold">Doctor</th>
-                      <th className="text-left px-6 py-4 font-semibold">Date</th>
-                      <th className="text-left px-6 py-4 font-semibold">Reason</th>
-                      <th className="text-left px-6 py-4 font-semibold">Status</th>
-                      <th className="text-left px-6 py-4 font-semibold">Created By</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {appointments.slice(0, 20).map((a: Appointment) => (
-                      <tr key={a._id} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-6 py-4">
-                          <p className="font-bold text-slate-800">{a.patientId?.name}</p>
-                          <p className="text-xs text-slate-400 font-mono mt-0.5 font-medium">{a.patientId?.patientId}</p>
-                        </td>
-                        <td className="px-6 py-4 text-slate-700 font-semibold">Dr. {a.doctorId?.name}</td>
-                        <td className="px-6 py-4 text-slate-600 font-medium text-xs">{formatDate(a.appointmentDate)}</td>
-                        <td className="px-6 py-4 text-slate-600">{a.reason}</td>
-                        <td className="px-6 py-4">
-                          <span className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${
-                            a.status === 'confirmed' ? 'bg-sky-50 text-sky-700 border border-sky-100' :
-                            a.status === 'completed' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
-                            a.status === 'cancelled' ? 'bg-rose-50 text-rose-700 border border-rose-100' :
-                            'bg-yellow-50 text-yellow-700 border border-yellow-100'
-                          }`}>
-                            {a.status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-slate-400 text-xs font-medium">
-                          {a.createdBy?.name || '—'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Modals */}
-        <AppointmentModal
-          isOpen={showAppointmentModal}
-          onClose={() => setShowAppointmentModal(false)}
-          onSubmit={handleCreateAppointment}
-          patients={modalPatientSearch}
-          doctors={doctorsWithCounts}
-          onSearchPatient={handleModalPatientSearch}
-        />
-      </div>
-    </PageTransition>
+      {/* Modals */}
+      <PatientRegistrationModal
+        isOpen={showRegisterModal}
+        onClose={() => setShowRegisterModal(false)}
+        doctors={doctorsWithCounts}
+        onSubmit={handleRegister}
+      />
+      <AppointmentModal
+        isOpen={showAppointmentModal}
+        onClose={() => setShowAppointmentModal(false)}
+        onSubmit={handleCreateAppointment}
+        patients={modalPatientSearch}
+        doctors={doctorsWithCounts}
+        onSearchPatient={handleModalPatientSearch}
+      />
+    </div>
   );
 };
 
