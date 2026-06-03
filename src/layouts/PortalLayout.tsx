@@ -38,9 +38,9 @@ export const PortalLayout: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 font-sans">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-5 space-y-5">
-        {/* Top navbar */}
+    <div className="h-screen bg-slate-100 font-sans flex flex-col overflow-hidden">
+      {/* Navbar row */}
+      <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 pt-5 shrink-0">
         <header className="bg-white rounded-2xl shadow-sm px-5 py-3 flex items-center gap-4">
           {/* Brand */}
           <div className="flex items-center gap-2.5 shrink-0">
@@ -110,8 +110,10 @@ export const PortalLayout: React.FC = () => {
             </div>
           </div>
         </header>
+      </div>
 
-        {/* Page content */}
+      {/* Scrollable page area — white card fills it, scroll lives inside the card */}
+      <div className="flex-1 overflow-hidden max-w-7xl w-full mx-auto px-4 sm:px-6 pb-5 pt-5">
         <Outlet context={{ searchQuery, setSearchQuery } satisfies PortalContext} />
       </div>
     </div>

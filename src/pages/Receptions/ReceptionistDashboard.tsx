@@ -1,13 +1,13 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import usePatientStore from '../../stores/usePatientStore';
 import useAppointmentStore from '../../stores/useAppointmentStore';
-import AppointmentModal from '../../components/AppointmentModal';
 import PatientRegistrationModal, { RegistrationPayload } from '../../components/PatientRegistrationModal';
+import PatientDetailPage from '../PatientDetailPage';
 import DoctorFolderCard from '../../components/DoctorFolderCard';
 import { usePortalSearch } from '../../layouts/PortalLayout';
 import { formatDate } from '../../utils/format';
-import { CalendarPlus, UserPlus, Loader2 } from 'lucide-react';
+import { UserPlus, Loader2 } from 'lucide-react';
 import { Patient, DoctorWithCount, Appointment } from '../../types';
 import { cn } from '../../utils/cn';
 
@@ -27,7 +27,7 @@ const statusPill = (status: string) => {
 };
 
 export const ReceptionistDashboard: React.FC = () => {
-  const { patients, searchResults, fetchPatients, searchPatients, createPatient, loading: patientsLoading } =
+  const { searchResults, fetchPatients, searchPatients, createPatient, updatePatient, loading: patientsLoading } =
     usePatientStore();
   const {
     appointments,
@@ -41,9 +41,8 @@ export const ReceptionistDashboard: React.FC = () => {
   const { searchQuery } = usePortalSearch();
 
   const [tab, setTab] = useState<Tab>('dashboard');
-  const [showAppointmentModal, setShowAppointmentModal] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
-  const [modalPatientSearch, setModalPatientSearch] = useState<typeof searchResults>([]);
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
 
   useEffect(() => {
     fetchPatients();
@@ -51,7 +50,6 @@ export const ReceptionistDashboard: React.FC = () => {
     fetchDoctorsWithCounts();
   }, []);
 
-  // Navbar search drives the patients table
   useEffect(() => {
     const timer = setTimeout(() => {
       searchPatients(searchQuery);
@@ -59,34 +57,7 @@ export const ReceptionistDashboard: React.FC = () => {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  const handleModalPatientSearch = useCallback(
-    (query: string) => {
-      if (!query.trim()) {
-        setModalPatientSearch([]);
-        return;
-      }
-      const q = query.toLowerCase();
-      setModalPatientSearch(
-        patients.filter(
-          (p: Patient) =>
-            p.name.toLowerCase().includes(q) || p.phone.includes(q) || p.patientId.toLowerCase().includes(q)
-        )
-      );
-    },
-    [patients]
-  );
-
-  const handleCreateAppointment = async (appointmentData: any, patientData?: any) => {
-    let finalPatientId = appointmentData.patientId;
-    if (patientData) {
-      const newPatient = await createPatient(patientData);
-      finalPatientId = newPatient._id;
-    }
-    await createAppointment({ ...appointmentData, patientId: finalPatientId });
-    fetchAppointments();
-  };
-
-  // Register patient + assign doctor (creates a pending appointment so the count reflects the assignment)
+  // Register patient + assign doctor (creates appointment so count reflects assignment)
   const handleRegister = async (payload: RegistrationPayload) => {
     const newPatient = await createPatient(payload.patient);
     await createAppointment({
@@ -99,7 +70,6 @@ export const ReceptionistDashboard: React.FC = () => {
     fetchAppointments();
   };
 
-  // Navbar search also filters the Recent Patients (appointments) table
   const filteredAppointments = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     if (!q) return appointments;
@@ -125,10 +95,25 @@ export const ReceptionistDashboard: React.FC = () => {
     </button>
   );
 
+  // Full-page patient detail
+  if (selectedPatient) {
+    return (
+      <PatientDetailPage
+        patient={selectedPatient}
+        role="receptionist"
+        onBack={() => setSelectedPatient(null)}
+        onUpdate={async (id, data) => {
+          await updatePatient(id, data);
+          fetchPatients();
+        }}
+      />
+    );
+  }
+
   return (
-    <div className="bg-white rounded-2xl shadow-sm p-6 sm:p-8">
-      {/* Tabs + actions */}
-      <div className="flex items-center justify-between flex-wrap gap-3 mb-7">
+    <div className="bg-white rounded-2xl shadow-sm h-full overflow-hidden flex flex-col">
+      {/* Tabs + actions — fixed at top */}
+      <div className="flex items-center justify-between flex-wrap gap-3 px-6 sm:px-8 pt-6 sm:pt-8 pb-4 shrink-0">
         <div className="flex items-center gap-2">
           <TabButton id="dashboard" label="Dashboard" />
           <TabButton id="patients" label="Patients" />
@@ -143,128 +128,128 @@ export const ReceptionistDashboard: React.FC = () => {
         </button>
       </div>
 
-      {tab === 'dashboard' ? (
-        <div className="space-y-8">
-          {/* Available Doctors */}
-          <section>
-            <h3 className="text-lg font-bold text-slate-800 mb-4">Available Doctors</h3>
-            {doctorsWithCounts.length === 0 ? (
-              <p className="text-slate-400 text-sm">No doctors registered yet.</p>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-                {doctorsWithCounts.map((doc: DoctorWithCount, i: number) => (
-                  <motion.div
-                    key={doc._id || doc.id}
-                    initial={{ opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.08 }}
-                  >
-                    <DoctorFolderCard doctor={doc} active={i === 0} />
-                  </motion.div>
-                ))}
-              </div>
-            )}
-          </section>
+      {/* Scrollable content */}
+      <div className="flex-1 overflow-y-auto scrollbar-hide px-6 sm:px-8 pb-6 sm:pb-8">
+        {tab === 'dashboard' ? (
+          <div className="space-y-8">
+            {/* Available Doctors */}
+            <section>
+              <h3 className="text-lg font-bold text-slate-800 mb-4">Available Doctors</h3>
+              {doctorsWithCounts.length === 0 ? (
+                <p className="text-slate-400 text-sm">No doctors registered yet.</p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                  {doctorsWithCounts.map((doc: DoctorWithCount, i: number) => (
+                    <motion.div
+                      key={doc._id || doc.id}
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.08 }}
+                    >
+                      <DoctorFolderCard doctor={doc} active={i === 0} />
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+            </section>
 
-          {/* Recent Patients */}
-          <section>
-            <h3 className="text-lg font-bold text-slate-800 mb-4">Recent Patients</h3>
-            {appointmentsLoading ? (
+            {/* Recent Patients */}
+            <section>
+              <h3 className="text-lg font-bold text-slate-800 mb-4">Recent Patients</h3>
+              {appointmentsLoading ? (
+                <div className="flex flex-col items-center justify-center py-14 text-slate-400">
+                  <Loader2 className="w-7 h-7 animate-spin mb-2 text-sky-600" />
+                  <p className="text-sm font-medium">Loading...</p>
+                </div>
+              ) : filteredAppointments.length === 0 ? (
+                <p className="text-slate-400 text-center py-14 font-medium">No recent patients.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-slate-400 text-left">
+                        <th className="px-4 py-3 font-medium">Full Name</th>
+                        <th className="px-4 py-3 font-medium">Assigned Doctor</th>
+                        <th className="px-4 py-3 font-medium">Patient ID</th>
+                        <th className="px-4 py-3 font-medium">Date &amp; Time</th>
+                        <th className="px-4 py-3 font-medium">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredAppointments.slice(0, 25).map((a: Appointment) => {
+                        const pill = statusPill(a.status);
+                        return (
+                          <tr
+                            key={a._id}
+                            className="border-t border-slate-100 hover:bg-sky-50/40 transition-colors cursor-pointer"
+                            onClick={() => a.patientId && setSelectedPatient(a.patientId as Patient)}
+                          >
+                            <td className="px-4 py-4 font-bold text-slate-800">{a.patientId?.name}</td>
+                            <td className="px-4 py-4 text-slate-600 font-medium">Dr. {a.doctorId?.name}</td>
+                            <td className="px-4 py-4 font-bold text-slate-800">{a.patientId?.patientId}</td>
+                            <td className="px-4 py-4 text-slate-500">{formatDate(a.appointmentDate)}</td>
+                            <td className="px-4 py-4">
+                              <span className={cn('px-4 py-1.5 rounded-full text-xs font-semibold', pill.className)}>
+                                {pill.label}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          </div>
+        ) : (
+          /* Patients tab */
+          <div className="space-y-5">
+            <h3 className="text-lg font-bold text-slate-800">All Patients</h3>
+            {patientsLoading ? (
               <div className="flex flex-col items-center justify-center py-14 text-slate-400">
                 <Loader2 className="w-7 h-7 animate-spin mb-2 text-sky-600" />
-                <p className="text-sm font-medium">Loading...</p>
+                <p className="text-sm font-medium">Loading patients...</p>
               </div>
-            ) : filteredAppointments.length === 0 ? (
-              <p className="text-slate-400 text-center py-14 font-medium">No recent patients.</p>
+            ) : searchResults.length === 0 ? (
+              <p className="text-slate-400 text-center py-14 font-medium">
+                {searchQuery ? 'No patients match your search.' : 'No patients registered yet.'}
+              </p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-slate-400 text-left">
-                      <th className="px-4 py-3 font-medium">Full Name</th>
-                      <th className="px-4 py-3 font-medium">Assigned Doctor</th>
                       <th className="px-4 py-3 font-medium">Patient ID</th>
-                      <th className="px-4 py-3 font-medium">Date &amp; Time</th>
-                      <th className="px-4 py-3 font-medium">Status</th>
+                      <th className="px-4 py-3 font-medium">Name</th>
+                      <th className="px-4 py-3 font-medium">Phone</th>
+                      <th className="px-4 py-3 font-medium">Gender</th>
+                      <th className="px-4 py-3 font-medium">Date of Birth</th>
+                      <th className="px-4 py-3 font-medium">Email</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredAppointments.slice(0, 25).map((a: Appointment) => {
-                      const pill = statusPill(a.status);
-                      return (
-                        <tr key={a._id} className="border-t border-slate-100 hover:bg-slate-50/60 transition-colors">
-                          <td className="px-4 py-4 font-bold text-slate-800">{a.patientId?.name}</td>
-                          <td className="px-4 py-4 text-slate-600 font-medium">Dr. {a.doctorId?.name}</td>
-                          <td className="px-4 py-4 font-bold text-slate-800">{a.patientId?.patientId}</td>
-                          <td className="px-4 py-4 text-slate-500">{formatDate(a.appointmentDate)}</td>
-                          <td className="px-4 py-4">
-                            <span className={cn('px-4 py-1.5 rounded-full text-xs font-semibold', pill.className)}>
-                              {pill.label}
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })}
+                    {searchResults.map((p: Patient) => (
+                      <tr
+                        key={p._id}
+                        className="border-t border-slate-100 hover:bg-sky-50/40 transition-colors cursor-pointer"
+                        onClick={() => setSelectedPatient(p)}
+                      >
+                        <td className="px-4 py-4 font-bold text-slate-800">{p.patientId}</td>
+                        <td className="px-4 py-4 font-bold text-slate-800">{p.name}</td>
+                        <td className="px-4 py-4 text-slate-600">{p.phone}</td>
+                        <td className="px-4 py-4 text-slate-600 capitalize">{p.gender}</td>
+                        <td className="px-4 py-4 text-slate-600">{new Date(p.dateOfBirth).toLocaleDateString()}</td>
+                        <td className="px-4 py-4 text-slate-500">{p.email || '—'}</td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
             )}
-          </section>
-        </div>
-      ) : (
-        /* Patients tab */
-        <div className="space-y-5">
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <h3 className="text-lg font-bold text-slate-800">All Patients</h3>
-            <button
-              type="button"
-              onClick={() => setShowAppointmentModal(true)}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-sm transition-colors"
-            >
-              <CalendarPlus className="w-4 h-4" />
-              New Appointment
-            </button>
           </div>
-
-          {patientsLoading ? (
-            <div className="flex flex-col items-center justify-center py-14 text-slate-400">
-              <Loader2 className="w-7 h-7 animate-spin mb-2 text-sky-600" />
-              <p className="text-sm font-medium">Loading patients...</p>
-            </div>
-          ) : searchResults.length === 0 ? (
-            <p className="text-slate-400 text-center py-14 font-medium">
-              {searchQuery ? 'No patients match your search.' : 'No patients registered yet.'}
-            </p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-slate-400 text-left">
-                    <th className="px-4 py-3 font-medium">Patient ID</th>
-                    <th className="px-4 py-3 font-medium">Name</th>
-                    <th className="px-4 py-3 font-medium">Phone</th>
-                    <th className="px-4 py-3 font-medium">Gender</th>
-                    <th className="px-4 py-3 font-medium">Date of Birth</th>
-                    <th className="px-4 py-3 font-medium">Email</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {searchResults.map((p: Patient) => (
-                    <tr key={p._id} className="border-t border-slate-100 hover:bg-slate-50/60 transition-colors">
-                      <td className="px-4 py-4 font-bold text-slate-800">{p.patientId}</td>
-                      <td className="px-4 py-4 font-bold text-slate-800">{p.name}</td>
-                      <td className="px-4 py-4 text-slate-600">{p.phone}</td>
-                      <td className="px-4 py-4 text-slate-600 capitalize">{p.gender}</td>
-                      <td className="px-4 py-4 text-slate-600">{new Date(p.dateOfBirth).toLocaleDateString()}</td>
-                      <td className="px-4 py-4 text-slate-500">{p.email || '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Modals */}
       <PatientRegistrationModal
@@ -273,14 +258,7 @@ export const ReceptionistDashboard: React.FC = () => {
         doctors={doctorsWithCounts}
         onSubmit={handleRegister}
       />
-      <AppointmentModal
-        isOpen={showAppointmentModal}
-        onClose={() => setShowAppointmentModal(false)}
-        onSubmit={handleCreateAppointment}
-        patients={modalPatientSearch}
-        doctors={doctorsWithCounts}
-        onSearchPatient={handleModalPatientSearch}
-      />
+
     </div>
   );
 };

@@ -20,6 +20,11 @@ export const patientService = {
   getPatientById: async (id: string): Promise<Patient> => {
     const response = await api.get<Patient>(`/patients/${id}`);
     return response.data;
+  },
+
+  updatePatient: async (id: string, data: any): Promise<Patient> => {
+    const response = await api.put<Patient>(`/patients/${id}`, data);
+    return response.data;
   }
 };
 

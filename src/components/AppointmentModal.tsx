@@ -11,16 +11,18 @@ interface Props {
   patients: Patient[];
   doctors: DoctorWithCount[];
   onSearchPatient: (query: string) => void;
+  /** When provided the doctor selector is hidden and this value is used automatically (for doctors creating their own appointments). */
+  defaultDoctorId?: string;
 }
 
 export const AppointmentModal: React.FC<Props> = ({
-  isOpen, onClose, onSubmit, patients, doctors, onSearchPatient
+  isOpen, onClose, onSubmit, patients, doctors, onSearchPatient, defaultDoctorId
 }) => {
   const [isNewPatient, setIsNewPatient] = useState(false);
 
   // Appointment states
   const [patientId, setPatientId] = useState('');
-  const [doctorId, setDoctorId] = useState('');
+  const [doctorId, setDoctorId] = useState(defaultDoctorId || '');
   const [appointmentDate, setAppointmentDate] = useState('');
   const [reason, setReason] = useState('');
   const [notes, setNotes] = useState('');
@@ -43,6 +45,11 @@ export const AppointmentModal: React.FC<Props> = ({
       onSearchPatient(patientSearch);
     }
   }, [patientSearch, isNewPatient, onSearchPatient]);
+
+  // Keep doctorId in sync when defaultDoctorId changes
+  useEffect(() => {
+    if (defaultDoctorId) setDoctorId(defaultDoctorId);
+  }, [defaultDoctorId]);
 
   const getMinDateTime = () => {
     const now = new Date();
@@ -84,7 +91,7 @@ export const AppointmentModal: React.FC<Props> = ({
       }
     }
 
-    if (!doctorId) {
+    if (!doctorId && !defaultDoctorId) {
       newErrors.doctorId = 'Please select a doctor';
     }
     if (!appointmentDate) {
@@ -324,15 +331,23 @@ export const AppointmentModal: React.FC<Props> = ({
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div>
                       <label className="block text-sm font-semibold text-slate-700 mb-1.5">Doctor *</label>
-                      <select value={doctorId} onChange={(e) => setDoctorId(e.target.value)}
-                        className={inputClasses(!!errors.doctorId)}>
-                        <option value="">-- Select Doctor --</option>
-                        {doctors.map((d) => (
-                          <option key={d._id || d.id} value={d._id || d.id}>
-                            Dr. {d.name} {d.specialization ? `(${d.specialization})` : ''}
-                          </option>
-                        ))}
-                      </select>
+                      {defaultDoctorId ? (
+                        <div className={inputClasses(false)}>
+                          Dr. {doctors.find((d) => (d._id || d.id) === defaultDoctorId)?.name || '—'}
+                        </div>
+                      ) : (
+                        <>
+                          <select value={doctorId} onChange={(e) => setDoctorId(e.target.value)}
+                            className={inputClasses(!!errors.doctorId)}>
+                            <option value="">-- Select Doctor --</option>
+                            {doctors.map((d) => (
+                              <option key={d._id || d.id} value={d._id || d.id}>
+                                Dr. {d.name} {d.specialization ? `(${d.specialization})` : ''}
+                              </option>
+                            ))}
+                          </select>
+                        </>
+                      )}
                       {errors.doctorId && <p className="text-rose-500 text-xs font-medium mt-1.5">{errors.doctorId}</p>}
                     </div>
 
