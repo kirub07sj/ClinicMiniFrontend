@@ -1,14 +1,13 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { motion } from 'framer-motion';
 import usePatientStore from '../../stores/usePatientStore';
 import useAppointmentStore from '../../stores/useAppointmentStore';
 import PatientRegistrationModal, { RegistrationPayload } from '../../components/PatientRegistrationModal';
 import PatientDetailPage from '../PatientDetailPage';
-import DoctorFolderCard from '../../components/DoctorFolderCard';
+import DoctorCarousel from '../../components/DoctorCarousel';
 import { usePortalSearch } from '../../layouts/PortalLayout';
 import { formatDate } from '../../utils/format';
 import { UserPlus, Loader2 } from 'lucide-react';
-import { Patient, DoctorWithCount, Appointment } from '../../types';
+import { Patient, Appointment } from '../../types';
 import { cn } from '../../utils/cn';
 
 type Tab = 'dashboard' | 'patients';
@@ -138,18 +137,7 @@ export const ReceptionistDashboard: React.FC = () => {
               {doctorsWithCounts.length === 0 ? (
                 <p className="text-slate-400 text-sm">No doctors registered yet.</p>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-                  {doctorsWithCounts.map((doc: DoctorWithCount, i: number) => (
-                    <motion.div
-                      key={doc._id || doc.id}
-                      initial={{ opacity: 0, y: 12 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.08 }}
-                    >
-                      <DoctorFolderCard doctor={doc} active={i === 0} />
-                    </motion.div>
-                  ))}
-                </div>
+                <DoctorCarousel doctors={doctorsWithCounts} />
               )}
             </section>
 

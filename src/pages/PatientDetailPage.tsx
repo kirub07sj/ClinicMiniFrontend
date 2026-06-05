@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { ArrowLeft, Plus, Save, Loader2, X, Trash2 } from 'lucide-react';
+import { ArrowLeft, Plus, Save, Loader2, Trash2, ChevronRight, CheckCircle, Lock } from 'lucide-react';
 import { Patient, MedicalInfo, Appointment } from '../types';
 import { cn } from '../utils/cn';
 import useAppointmentStore from '../stores/useAppointmentStore';
@@ -71,7 +71,6 @@ export const PatientDetailPage: React.FC<Props> = ({ patient, role, onBack, onUp
   const [editedAdditionalPersonal, setEditedAdditionalPersonal] = useState('');
 
   // ── Medical info state ──
-  const [medical, setMedical] = useState<MedicalInfo>(patient.medicalInfo || EMPTY_MEDICAL);
   const [diagnosisText, setDiagnosisText] = useState('');
   const [treatmentText, setTreatmentText] = useState('');
   const [additionalNotes, setAdditionalNotes] = useState('');
@@ -85,16 +84,26 @@ export const PatientDetailPage: React.FC<Props> = ({ patient, role, onBack, onUp
 
   const [saving, setSaving] = useState(false);
 
-  // ── Assigned Doctor lookup ──
-  const { appointments } = useAppointmentStore();
-  const assignedDoctor = useMemo(() => {
-    const appt = appointments.find(
-      (a: Appointment) =>
-        a.patientId?._id === patient._id &&
-        (a.status === 'pending' || a.status === 'confirmed')
-    );
-    return appt?.doctorId?.name ? `Dr. ${appt.doctorId.name}` : '—';
-  }, [appointments, patient._id]);
+  // ── Active appointment + treatment gating ──
+  const { appointments, updateAppointment } = useAppointmentStore();
+  const activeAppointment = useMemo(
+    () =>
+      appointments.find(
+        (a: Appointment) =>
+          a.patientId?._id === patient._id &&
+          (a.status === 'pending' || a.status === 'confirmed')
+      ),
+    [appointments, patient._id]
+  );
+  const assignedDoctor = activeAppointment?.doctorId?.name
+    ? `Dr. ${activeAppointment.doctorId.name}`
+    : '—';
+
+  // A confirmed appointment means treatment is already underway.
+  const [started, setStarted] = useState(false);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+  // Medical fields are editable once treatment has started (doctor only).
+  const medicalLocked = isDoctor && !started && activeAppointment?.status !== 'confirmed';
 
   // Reset when patient changes
   useEffect(() => {
@@ -105,7 +114,6 @@ export const PatientDetailPage: React.FC<Props> = ({ patient, role, onBack, onUp
     setEditedAdditionalPersonal('');
 
     const med = patient.medicalInfo || EMPTY_MEDICAL;
-    setMedical(med);
     setDiagnosisText((med.diagnosisTags || []).join(', '));
     setTreatmentText((med.treatmentTags || []).join(', '));
     setAdditionalNotes(med.additionalInfo || '');
@@ -115,6 +123,7 @@ export const PatientDetailPage: React.FC<Props> = ({ patient, role, onBack, onUp
     setNewDosage('');
     setNewFrequency('');
     setNewDuration('');
+    setStarted(false);
   }, [patient]);
 
   const addPrescriptionItem = () => {
@@ -138,32 +147,69 @@ export const PatientDetailPage: React.FC<Props> = ({ patient, role, onBack, onUp
     setPrescriptionItems((prev) => prev.filter((_, i) => i !== idx));
   };
 
+  const buildPayload = () => {
+    const diagnosisTags = diagnosisText
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const treatmentTags = treatmentText
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    const medicalInfo = {
+      diagnosisTags,
+      treatmentTags,
+      prescription: serializePrescription(prescriptionItems),
+      additionalInfo: additionalNotes.trim(),
+    };
+
+    // Doctors only update medical info — personal fields stay untouched.
+    if (isDoctor) return { medicalInfo };
+
+    // Receptionists may only update personal fields (backend rejects medicalInfo).
+    return {
+      name: editedName.trim(),
+      phone: editedPhone.trim(),
+      gender: editedGender,
+      address: editedAddress.trim(),
+    };
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
-      const diagnosisTags = diagnosisText
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean);
-      const treatmentTags = treatmentText
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean);
+      await onUpdate(patient._id, buildPayload());
+    } finally {
+      setSaving(false);
+    }
+  };
 
-      const payload: any = {
-        name: editedName.trim(),
-        phone: editedPhone.trim(),
-        gender: editedGender,
-        address: editedAddress.trim(),
-        medicalInfo: {
-          diagnosisTags,
-          treatmentTags,
-          prescription: serializePrescription(prescriptionItems),
-          additionalInfo: additionalNotes.trim(),
-        },
-      };
+  // Doctor begins the visit — unlocks the medical fields and moves the
+  // appointment into "In Treatment" (confirmed) so it stays in sync with
+  // the Appointments tab.
+  const handleStartTreatment = async () => {
+    setStarted(true);
+    if (activeAppointment && activeAppointment.status !== 'confirmed') {
+      setUpdatingStatus(true);
+      try {
+        await updateAppointment(activeAppointment._id, { status: 'confirmed' });
+      } finally {
+        setUpdatingStatus(false);
+      }
+    }
+  };
 
-      await onUpdate(patient._id, payload);
+  // Doctor finishes the visit — persists the medical info and marks the
+  // appointment completed.
+  const handleComplete = async () => {
+    setSaving(true);
+    try {
+      await onUpdate(patient._id, buildPayload());
+      if (activeAppointment) {
+        await updateAppointment(activeAppointment._id, { status: 'completed' });
+      }
+      setStarted(false);
     } finally {
       setSaving(false);
     }
@@ -183,14 +229,46 @@ export const PatientDetailPage: React.FC<Props> = ({ patient, role, onBack, onUp
 
         <h2 className="text-lg font-extrabold text-slate-800 tracking-tight">Patient Details</h2>
 
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="flex items-center gap-2 px-5 py-2.5 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-sm font-bold shadow-sm transition-all disabled:opacity-50"
-        >
-          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-          Save & Update
-        </button>
+        {isDoctor ? (
+          medicalLocked ? (
+            <button
+              onClick={handleStartTreatment}
+              disabled={updatingStatus}
+              className="flex items-center gap-2 px-5 py-2.5 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-sm font-bold shadow-sm transition-all disabled:opacity-50"
+            >
+              {updatingStatus ? <Loader2 className="w-4 h-4 animate-spin" /> : <ChevronRight className="w-4 h-4" />}
+              Start Treatment
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg text-sm font-bold shadow-sm transition-all disabled:opacity-50"
+              >
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                Save
+              </button>
+              <button
+                onClick={handleComplete}
+                disabled={saving}
+                className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-bold shadow-sm transition-all disabled:opacity-50"
+              >
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                Complete
+              </button>
+            </div>
+          )
+        ) : (
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="flex items-center gap-2 px-5 py-2.5 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-sm font-bold shadow-sm transition-all disabled:opacity-50"
+          >
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            Save & Update
+          </button>
+        )}
       </div>
 
       {/* ─── Scrollable Content ─── */}
@@ -216,7 +294,8 @@ export const PatientDetailPage: React.FC<Props> = ({ patient, role, onBack, onUp
                   value={editedName}
                   onChange={(e) => setEditedName(e.target.value)}
                   placeholder="Full Name"
-                  className={inputClass}
+                  readOnly={isDoctor}
+                  className={cn(inputClass, isDoctor && 'bg-slate-50 cursor-default')}
                 />
               </div>
 
@@ -236,7 +315,8 @@ export const PatientDetailPage: React.FC<Props> = ({ patient, role, onBack, onUp
                 <select
                   value={editedGender}
                   onChange={(e) => setEditedGender(e.target.value as any)}
-                  className={inputClass}
+                  disabled={isDoctor}
+                  className={cn(inputClass, isDoctor && 'bg-slate-50 cursor-default appearance-none')}
                 >
                   <option value="male">Male</option>
                   <option value="female">Female</option>
@@ -251,7 +331,8 @@ export const PatientDetailPage: React.FC<Props> = ({ patient, role, onBack, onUp
                   value={editedPhone}
                   onChange={(e) => setEditedPhone(e.target.value)}
                   placeholder="Phone Number"
-                  className={inputClass}
+                  readOnly={isDoctor}
+                  className={cn(inputClass, isDoctor && 'bg-slate-50 cursor-default')}
                 />
               </div>
 
@@ -272,7 +353,8 @@ export const PatientDetailPage: React.FC<Props> = ({ patient, role, onBack, onUp
                   value={editedAddress}
                   onChange={(e) => setEditedAddress(e.target.value)}
                   placeholder="Address"
-                  className={inputClass}
+                  readOnly={isDoctor}
+                  className={cn(inputClass, isDoctor && 'bg-slate-50 cursor-default')}
                 />
               </div>
 
@@ -283,7 +365,8 @@ export const PatientDetailPage: React.FC<Props> = ({ patient, role, onBack, onUp
                   value={editedAdditionalPersonal}
                   onChange={(e) => setEditedAdditionalPersonal(e.target.value)}
                   placeholder="Additional Information"
-                  className={inputClass}
+                  readOnly={isDoctor}
+                  className={cn(inputClass, isDoctor && 'bg-slate-50 cursor-default')}
                 />
               </div>
             </div>
@@ -291,12 +374,27 @@ export const PatientDetailPage: React.FC<Props> = ({ patient, role, onBack, onUp
         </section>
 
         {/* ══════════════════════════════════════════
-            MEDICAL INFORMATION SECTION
+            MEDICAL INFORMATION SECTION — doctors only
            ══════════════════════════════════════════ */}
+        {isDoctor && (
         <section>
-          <h3 className="text-base font-extrabold text-slate-800 mb-4">Medical Information</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-base font-extrabold text-slate-800">Medical Information</h3>
+            {medicalLocked && (
+              <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-100 text-amber-600 text-xs font-semibold">
+                <Lock className="w-3.5 h-3.5" />
+                Start treatment to edit
+              </span>
+            )}
+          </div>
 
-          <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5 sm:p-6 space-y-5">
+          <fieldset
+            disabled={medicalLocked}
+            className={cn(
+              'bg-white rounded-xl border border-slate-100 shadow-sm p-5 sm:p-6 space-y-5 transition-opacity',
+              medicalLocked && 'opacity-60 pointer-events-none select-none'
+            )}
+          >
             {/* Diagnosed + Treatment Row */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               <div>
@@ -430,8 +528,9 @@ export const PatientDetailPage: React.FC<Props> = ({ patient, role, onBack, onUp
                 </div>
               )}
             </div>
-          </div>
+          </fieldset>
         </section>
+        )}
       </div>
     </div>
   );

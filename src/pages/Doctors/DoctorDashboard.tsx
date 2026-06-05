@@ -6,7 +6,7 @@ import AppointmentModal from '../../components/AppointmentModal';
 import PatientDetailPage from '../PatientDetailPage';
 import { usePortalSearch } from '../../layouts/PortalLayout';
 import { formatDate } from '../../utils/format';
-import { Check, X, FileText, CheckCircle, Loader2, CalendarPlus } from 'lucide-react';
+import { X, FileText, CheckCircle, Loader2, CalendarPlus, ChevronRight } from 'lucide-react';
 import { Appointment, Patient } from '../../types';
 import { cn } from '../../utils/cn';
 
@@ -73,6 +73,18 @@ export const DoctorDashboard: React.FC = () => {
 
   const todaysList = useMemo(() => filtered.filter((a) => isToday(a.appointmentDate)), [filtered]);
 
+  // Upcoming appointments only — exclude already-treated (completed) and
+  // cancelled ones, and anything before today.
+  const upcomingList = useMemo(() => {
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    return filtered.filter(
+      (a) =>
+        (a.status === 'pending' || a.status === 'confirmed') &&
+        new Date(a.appointmentDate).getTime() >= startOfToday.getTime()
+    );
+  }, [filtered]);
+
   const uniquePatients = useMemo(() => {
     const map = new Map<string, Patient>();
     filtered.forEach((a) => {
@@ -80,6 +92,17 @@ export const DoctorDashboard: React.FC = () => {
     });
     return Array.from(map.values());
   }, [filtered]);
+
+  // Appointments only populate a subset of patient fields (no medicalInfo),
+  // so resolve the full record from the patients store before opening details.
+  const openPatientDetails = useCallback(
+    (p?: Patient | null) => {
+      if (!p) return;
+      const full = patients.find((pt: Patient) => pt._id === p._id) || p;
+      setSelectedPatient(full);
+    },
+    [patients]
+  );
 
   const handleStatusChange = async (id: string, status: string) => {
     setError('');
@@ -207,7 +230,7 @@ export const DoctorDashboard: React.FC = () => {
                     {todaysList.map((a) => {
                       const pill = statusPill(a.status);
                       return (
-                        <tr key={a._id} className="border-t border-slate-100 hover:bg-sky-50/40 transition-colors cursor-pointer" onClick={() => a.patientId && setSelectedPatient(a.patientId as Patient)}>
+                        <tr key={a._id} className="border-t border-slate-100 hover:bg-sky-50/40 transition-colors cursor-pointer" onClick={() => openPatientDetails(a.patientId as Patient)}>
                           <td className="px-3 py-4 font-bold text-slate-800">{a.patientId?.name}</td>
                           <td className="px-3 py-4 font-bold text-slate-800">{a.patientId?.patientId}</td>
                           <td className="px-3 py-4">
@@ -226,8 +249,8 @@ export const DoctorDashboard: React.FC = () => {
             {/* Appointed Patients List */}
             <section>
               <h3 className="text-lg font-bold text-slate-800 mb-4">Appointed Patients List</h3>
-              {filtered.length === 0 ? (
-                <p className="text-slate-400 text-sm py-8 text-center">No appointments assigned to you.</p>
+              {upcomingList.length === 0 ? (
+                <p className="text-slate-400 text-sm py-8 text-center">No upcoming appointments.</p>
               ) : (
                 <table className="w-full text-sm">
                   <thead>
@@ -238,7 +261,7 @@ export const DoctorDashboard: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {filtered.slice(0, 25).map((a) => (
+                    {upcomingList.slice(0, 25).map((a) => (
                       <tr key={a._id} className="border-t border-slate-100">
                         <td className="px-3 py-4 font-bold text-slate-800">{a.patientId?.name}</td>
                         <td className="px-3 py-4 font-bold text-slate-800">{a.patientId?.patientId}</td>
@@ -268,7 +291,7 @@ export const DoctorDashboard: React.FC = () => {
                 </thead>
                 <tbody>
                   {uniquePatients.map((p) => (
-                    <tr key={p._id} className="border-t border-slate-100 hover:bg-sky-50/40 transition-colors cursor-pointer" onClick={() => setSelectedPatient(p)}>
+                    <tr key={p._id} className="border-t border-slate-100 hover:bg-sky-50/40 transition-colors cursor-pointer" onClick={() => openPatientDetails(p)}>
                       <td className="px-3 py-4 font-bold text-slate-800">{p.name}</td>
                       <td className="px-3 py-4 font-bold text-slate-800">{p.patientId}</td>
                       <td className="px-3 py-4 text-slate-600">{p.phone}</td>
@@ -286,111 +309,123 @@ export const DoctorDashboard: React.FC = () => {
             {filtered.length === 0 ? (
               <p className="text-slate-400 text-sm py-8 text-center">No appointments assigned to you.</p>
             ) : (
-              <div className="divide-y divide-slate-100">
-                {filtered.map((a: Appointment) => {
-                  const pill = statusPill(a.status);
-                  return (
-                    <div key={a._id} className="py-5 hover:bg-slate-50/50 transition-colors rounded-lg">
-                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <div className="space-y-1.5 flex-1">
-                          <div className="flex items-center gap-3 flex-wrap">
-                            <h4 className="font-bold text-slate-800">{a.patientId?.name}</h4>
-                            <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-xs font-mono font-semibold">
-                              {a.patientId?.patientId}
-                            </span>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-slate-400 text-left">
+                    <th className="px-3 py-3 font-medium">Full Name</th>
+                    <th className="px-3 py-3 font-medium">Patient ID</th>
+                    <th className="px-3 py-3 font-medium">Date</th>
+                    <th className="px-3 py-3 font-medium">Reason</th>
+                    <th className="px-3 py-3 font-medium">Status</th>
+                    <th className="px-3 py-3 font-medium text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((a: Appointment) => {
+                    const pill = statusPill(a.status);
+                    return (
+                      <React.Fragment key={a._id}>
+                        <tr
+                          className="border-t border-slate-100 hover:bg-sky-50/40 transition-colors cursor-pointer"
+                          onClick={() => openPatientDetails(a.patientId as Patient)}
+                        >
+                          <td className="px-3 py-4 font-bold text-slate-800">{a.patientId?.name}</td>
+                          <td className="px-3 py-4 font-mono font-semibold text-slate-600">{a.patientId?.patientId}</td>
+                          <td className="px-3 py-4 text-slate-500">{formatDate(a.appointmentDate)}</td>
+                          <td className="px-3 py-4 text-slate-600 max-w-[14rem] truncate">{a.reason}</td>
+                          <td className="px-3 py-4">
                             <span className={cn('px-3 py-1 rounded-full text-xs font-semibold', pill.className)}>
                               {pill.label}
                             </span>
-                          </div>
-                          <p className="text-slate-500 text-sm">{formatDate(a.appointmentDate)}</p>
-                          <p className="text-slate-500 text-sm">
-                            <span className="text-slate-400">Phone:</span> {a.patientId?.phone}
-                          </p>
-                          <p className="text-slate-700 text-sm">
-                            <span className="text-slate-400">Reason:</span> {a.reason}
-                          </p>
+                          </td>
+                          <td className="px-3 py-4" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex gap-2 justify-end">
+                              {a.status === 'pending' && (
+                                <>
+                                  <button
+                                    onClick={() => handleStatusChange(a._id, 'confirmed')}
+                                    className="p-2 bg-sky-50 text-sky-600 hover:bg-sky-600 hover:text-white rounded-lg border border-sky-100 transition-colors"
+                                    title="Start Treatment"
+                                  >
+                                    <ChevronRight className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleStatusChange(a._id, 'cancelled')}
+                                    className="p-2 bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white rounded-lg border border-rose-100 transition-colors"
+                                    title="Cancel"
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </button>
+                                </>
+                              )}
 
-                          {a.notes && (
-                            <div className="mt-2 p-3 bg-slate-100 rounded-lg text-xs text-slate-600">
-                              <strong className="text-slate-700 block mb-1">Clinical Notes:</strong>
-                              {a.notes}
+                              {a.status === 'confirmed' && (
+                                <>
+                                  <button
+                                    onClick={() => {
+                                      setEditingId(editingId === a._id ? null : a._id);
+                                      setDoctorNotes(a.notes || '');
+                                    }}
+                                    className="p-2 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-lg transition-all text-xs font-semibold flex items-center gap-1.5"
+                                    title="Add Notes"
+                                  >
+                                    <FileText className="w-4 h-4" />
+                                    <span>Notes</span>
+                                  </button>
+                                  <button
+                                    onClick={() => handleStatusChange(a._id, 'completed')}
+                                    className="p-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white rounded-lg border border-emerald-100 transition-colors text-xs font-semibold flex items-center gap-1.5"
+                                    title="Complete"
+                                  >
+                                    <CheckCircle className="w-4 h-4" />
+                                    <span>Complete</span>
+                                  </button>
+                                </>
+                              )}
                             </div>
-                          )}
+                          </td>
+                        </tr>
 
-                          {editingId === a._id && (
-                            <div className="mt-3 flex gap-2">
-                              <input
-                                type="text"
-                                value={doctorNotes}
-                                onChange={(e) => setDoctorNotes(e.target.value)}
-                                placeholder="Add prescription, findings..."
-                                className="flex-1 text-xs border border-slate-300 rounded p-2 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                              />
-                              <button
-                                onClick={() => handleSaveNotes(a._id)}
-                                className="bg-sky-600 hover:bg-sky-700 text-white rounded px-3 text-xs font-semibold transition-colors"
-                              >
-                                Save
-                              </button>
-                              <button
-                                onClick={() => setEditingId(null)}
-                                className="bg-slate-200 hover:bg-slate-300 text-slate-700 rounded px-3 text-xs font-semibold transition-colors"
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="flex gap-2 flex-shrink-0">
-                          {a.status === 'pending' && (
-                            <>
-                              <button
-                                onClick={() => handleStatusChange(a._id, 'confirmed')}
-                                className="p-2 bg-sky-50 text-sky-600 hover:bg-sky-600 hover:text-white rounded-lg border border-sky-100 transition-colors"
-                                title="Confirm"
-                              >
-                                <Check className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => handleStatusChange(a._id, 'cancelled')}
-                                className="p-2 bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white rounded-lg border border-rose-100 transition-colors"
-                                title="Cancel"
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
-                            </>
-                          )}
-
-                          {a.status === 'confirmed' && (
-                            <>
-                              <button
-                                onClick={() => {
-                                  setEditingId(a._id);
-                                  setDoctorNotes(a.notes || '');
-                                }}
-                                className="p-2 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-lg transition-all text-xs font-semibold flex items-center gap-1.5"
-                                title="Add Notes"
-                              >
-                                <FileText className="w-4 h-4" />
-                                <span>Notes</span>
-                              </button>
-                              <button
-                                onClick={() => handleStatusChange(a._id, 'completed')}
-                                className="p-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white rounded-lg border border-emerald-100 transition-colors text-xs font-semibold flex items-center gap-1.5"
-                                title="Complete"
-                              >
-                                <CheckCircle className="w-4 h-4" />
-                                <span>Complete</span>
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                        {(a.notes || editingId === a._id) && (
+                          <tr className="border-t border-slate-50 bg-slate-50/40">
+                            <td colSpan={6} className="px-3 pb-4 pt-0">
+                              {a.notes && editingId !== a._id && (
+                                <div className="p-3 bg-white rounded-lg text-xs text-slate-600 border border-slate-100">
+                                  <strong className="text-slate-700 block mb-1">Clinical Notes:</strong>
+                                  {a.notes}
+                                </div>
+                              )}
+                              {editingId === a._id && (
+                                <div className="flex gap-2">
+                                  <input
+                                    type="text"
+                                    value={doctorNotes}
+                                    onChange={(e) => setDoctorNotes(e.target.value)}
+                                    placeholder="Add prescription, findings..."
+                                    className="flex-1 text-xs border border-slate-300 rounded p-2 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                                  />
+                                  <button
+                                    onClick={() => handleSaveNotes(a._id)}
+                                    className="bg-sky-600 hover:bg-sky-700 text-white rounded px-3 text-xs font-semibold transition-colors"
+                                  >
+                                    Save
+                                  </button>
+                                  <button
+                                    onClick={() => setEditingId(null)}
+                                    className="bg-slate-200 hover:bg-slate-300 text-slate-700 rounded px-3 text-xs font-semibold transition-colors"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
             )}
           </section>
         )}
