@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { ArrowLeft, Plus, Save, Loader2, Trash2, ChevronRight, CheckCircle, Lock } from 'lucide-react';
+import { ArrowLeft, Plus, Save, Loader2, X, ChevronRight, CheckCircle, Lock } from 'lucide-react';
 import { Patient, MedicalInfo, Appointment } from '../types';
 import { cn } from '../utils/cn';
 import useAppointmentStore from '../stores/useAppointmentStore';
@@ -35,10 +35,11 @@ const EMPTY_MEDICAL: MedicalInfo = {
 };
 
 const labelClass = 'block text-xs font-medium text-slate-400 mb-1.5';
+const cardLabelClass = 'block text-sm font-bold text-slate-800 mb-2';
+const fieldClass =
+  'w-full rounded-xl border border-slate-100 bg-slate-50/70 px-4 py-3 text-sm text-slate-800 placeholder:text-slate-300 shadow-inner focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-300 transition-all';
 const inputClass =
   'w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-400 transition-all';
-const textareaClass =
-  'w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-400 transition-all resize-none';
 
 // Parse prescription text into structured items
 const parsePrescription = (prescription: string): PrescriptionItem[] => {
@@ -71,8 +72,10 @@ export const PatientDetailPage: React.FC<Props> = ({ patient, role, onBack, onUp
   const [editedAdditionalPersonal, setEditedAdditionalPersonal] = useState('');
 
   // ── Medical info state ──
-  const [diagnosisText, setDiagnosisText] = useState('');
-  const [treatmentText, setTreatmentText] = useState('');
+  const [diagnosisTags, setDiagnosisTags] = useState<string[]>([]);
+  const [treatmentTags, setTreatmentTags] = useState<string[]>([]);
+  const [diagnosisInput, setDiagnosisInput] = useState('');
+  const [treatmentInput, setTreatmentInput] = useState('');
   const [additionalNotes, setAdditionalNotes] = useState('');
 
   // ── Prescription state ──
@@ -114,8 +117,10 @@ export const PatientDetailPage: React.FC<Props> = ({ patient, role, onBack, onUp
     setEditedAdditionalPersonal('');
 
     const med = patient.medicalInfo || EMPTY_MEDICAL;
-    setDiagnosisText((med.diagnosisTags || []).join(', '));
-    setTreatmentText((med.treatmentTags || []).join(', '));
+    setDiagnosisTags(med.diagnosisTags || []);
+    setTreatmentTags(med.treatmentTags || []);
+    setDiagnosisInput('');
+    setTreatmentInput('');
     setAdditionalNotes(med.additionalInfo || '');
     setPrescriptionItems(parsePrescription(med.prescription || ''));
 
@@ -147,16 +152,19 @@ export const PatientDetailPage: React.FC<Props> = ({ patient, role, onBack, onUp
     setPrescriptionItems((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  const buildPayload = () => {
-    const diagnosisTags = diagnosisText
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
-    const treatmentTags = treatmentText
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
+  // Commit the current text in a tag input as a chip (on Enter or comma).
+  const addTag = (
+    raw: string,
+    setTags: React.Dispatch<React.SetStateAction<string[]>>,
+    clearInput: () => void
+  ) => {
+    const value = raw.trim().replace(/,$/, '').trim();
+    if (!value) return;
+    setTags((prev) => (prev.includes(value) ? prev : [...prev, value]));
+    clearInput();
+  };
 
+  const buildPayload = () => {
     const medicalInfo = {
       diagnosisTags,
       treatmentTags,
@@ -215,78 +223,85 @@ export const PatientDetailPage: React.FC<Props> = ({ patient, role, onBack, onUp
     }
   };
 
+  const actionButtons = isDoctor ? (
+    medicalLocked ? (
+      <button
+        onClick={handleStartTreatment}
+        disabled={updatingStatus}
+        className="flex items-center gap-2 px-5 py-2.5 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-sm font-bold shadow-sm transition-all disabled:opacity-50"
+      >
+        {updatingStatus ? <Loader2 className="w-4 h-4 animate-spin" /> : <ChevronRight className="w-4 h-4" />}
+        Start Treatment
+      </button>
+    ) : (
+      <div className="flex items-center gap-2">
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg text-sm font-bold shadow-sm transition-all disabled:opacity-50"
+        >
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+          Save
+        </button>
+        <button
+          onClick={handleComplete}
+          disabled={saving}
+          className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-bold shadow-sm transition-all disabled:opacity-50"
+        >
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+          Complete
+        </button>
+      </div>
+    )
+  ) : (
+    <button
+      onClick={handleSave}
+      disabled={saving}
+      className="flex items-center gap-2 px-5 py-2.5 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-sm font-bold shadow-sm transition-all disabled:opacity-50"
+    >
+      {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+      Save & Update
+    </button>
+  );
+
   return (
-    <div className="h-full overflow-hidden flex flex-col bg-slate-50/50">
-      {/* ─── Top Header ─── */}
-      <div className="flex items-center justify-between px-6 sm:px-8 py-5 bg-white border-b border-slate-100 shrink-0">
+    <div className="h-full overflow-hidden flex flex-col bg-slate-50/50 backdrop-blur-3xl fixed top-0 w-[80%] -ml-[40px]">
+      {/* ─── Top Row: Back + title ─── */}
+      <div className="flex items-center justify-between px-6 sm:px-10 pt-6 pb-2 shrink-0">
         <button
           onClick={onBack}
-          className="flex items-center gap-2 text-slate-600 hover:text-slate-800 transition-colors group"
+          className="flex items-center gap-2 text-slate-700 hover:text-slate-900 transition-colors group"
         >
-          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
-          <span className="text-sm font-semibold">Back</span>
+          <span className="flex items-center justify-center w-9 h-9 rounded-full bg-white shadow-sm border border-slate-100 group-hover:-translate-x-0.5 transition-transform">
+            <ArrowLeft className="w-4 h-4" />
+          </span>
+          <span className="text-base font-semibold">Back</span>
         </button>
 
-        <h2 className="text-lg font-extrabold text-slate-800 tracking-tight">Patient Details</h2>
+        <h2 className="text-xl font-extrabold text-slate-800 tracking-tight">Patient Details</h2>
+      </div>
 
-        {isDoctor ? (
-          medicalLocked ? (
-            <button
-              onClick={handleStartTreatment}
-              disabled={updatingStatus}
-              className="flex items-center gap-2 px-5 py-2.5 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-sm font-bold shadow-sm transition-all disabled:opacity-50"
-            >
-              {updatingStatus ? <Loader2 className="w-4 h-4 animate-spin" /> : <ChevronRight className="w-4 h-4" />}
-              Start Treatment
-            </button>
-          ) : (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg text-sm font-bold shadow-sm transition-all disabled:opacity-50"
-              >
-                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                Save
-              </button>
-              <button
-                onClick={handleComplete}
-                disabled={saving}
-                className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-bold shadow-sm transition-all disabled:opacity-50"
-              >
-                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-                Complete
-              </button>
-            </div>
-          )
-        ) : (
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="flex items-center gap-2 px-5 py-2.5 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-sm font-bold shadow-sm transition-all disabled:opacity-50"
-          >
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            Save & Update
-          </button>
-        )}
+      {/* ─── Section Row: heading + actions ─── */}
+      <div className="flex items-center justify-between px-6 sm:px-10 pt-3 pb-4 shrink-0">
+        <h3 className="text-lg font-extrabold text-slate-800">Patient Information</h3>
+        {actionButtons}
       </div>
 
       {/* ─── Scrollable Content ─── */}
-      <div className="flex-1 overflow-y-auto scrollbar-hide px-6 sm:px-8 py-6 space-y-6">
+      <div className="flex-1 overflow-y-auto scrollbar-hide px-6 sm:px-10 pb-6 space-y-6">
         {/* ══════════════════════════════════════════
             PATIENT INFORMATION SECTION
            ══════════════════════════════════════════ */}
         <section>
-          <h3 className="text-base font-extrabold text-slate-800 mb-4">Patient Information</h3>
-
-          <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5 sm:p-6">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-8 pb-[2rem] ">
             {/* Patient ID */}
             <p className="text-sm font-bold text-slate-700 mb-5">
               ID: <span className="text-slate-500 font-mono">{patient.patientId?.replace('PAT-', '') || patient.patientId}</span>
             </p>
 
-            {/* Form Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-5 gap-y-4">
+            {/* Form Grid — left column is one wide field per row; right column
+                holds Age+Gender, then Assigned Doctor, then Additional Info. */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-5">
               {/* Full Name */}
               <div>
                 <label className={labelClass}>Full Name</label>
@@ -299,29 +314,29 @@ export const PatientDetailPage: React.FC<Props> = ({ patient, role, onBack, onUp
                 />
               </div>
 
-              {/* Age */}
-              <div>
-                <label className={labelClass}>Age</label>
-                <input
-                  value={getAge(patient.dateOfBirth)}
-                  readOnly
-                  className={cn(inputClass, 'bg-slate-50 cursor-default')}
-                />
-              </div>
-
-              {/* Gender */}
-              <div>
-                <label className={labelClass}>Gender</label>
-                <select
-                  value={editedGender}
-                  onChange={(e) => setEditedGender(e.target.value as any)}
-                  disabled={isDoctor}
-                  className={cn(inputClass, isDoctor && 'bg-slate-50 cursor-default appearance-none')}
-                >
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                  <option value="other">Other</option>
-                </select>
+              {/* Age + Gender */}
+              <div className="grid grid-cols-2 gap-x-5">
+                <div>
+                  <label className={labelClass}>Age</label>
+                  <input
+                    value={getAge(patient.dateOfBirth)}
+                    readOnly
+                    className={cn(inputClass, 'bg-slate-50 cursor-default')}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Gender</label>
+                  <select
+                    value={editedGender}
+                    onChange={(e) => setEditedGender(e.target.value as any)}
+                    disabled={isDoctor}
+                    className={cn(inputClass, isDoctor && 'bg-slate-50 cursor-default appearance-none')}
+                  >
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
               </div>
 
               {/* Phone Number */}
@@ -337,8 +352,8 @@ export const PatientDetailPage: React.FC<Props> = ({ patient, role, onBack, onUp
               </div>
 
               {/* Assigned Doctor */}
-              <div className="sm:col-span-2">
-                <label className={labelClass}>Assigned Doctor</label>
+              <div>
+                <label className="block text-sm font-bold text-slate-800 mb-1.5">Assigned Doctor</label>
                 <input
                   value={assignedDoctor}
                   readOnly
@@ -359,7 +374,7 @@ export const PatientDetailPage: React.FC<Props> = ({ patient, role, onBack, onUp
               </div>
 
               {/* Additional Information */}
-              <div className="sm:col-span-2">
+              <div>
                 <label className={labelClass}>Additional Information (Optional)</label>
                 <input
                   value={editedAdditionalPersonal}
@@ -391,142 +406,179 @@ export const PatientDetailPage: React.FC<Props> = ({ patient, role, onBack, onUp
           <fieldset
             disabled={medicalLocked}
             className={cn(
-              'bg-white rounded-xl border border-slate-100 shadow-sm p-5 sm:p-6 space-y-5 transition-opacity',
+              'grid grid-cols-1 lg:grid-cols-2 gap-6 transition-opacity',
               medicalLocked && 'opacity-60 pointer-events-none select-none'
             )}
           >
-            {/* Diagnosed + Treatment Row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            {/* ─── LEFT CARD: Diagnosed + Prescription ─── */}
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-md p-6 sm:p-7 space-y-6">
+              {/* Diagnosed */}
               <div>
-                <label className={labelClass}>Diagnosed</label>
-                <textarea
-                  value={diagnosisText}
-                  onChange={(e) => setDiagnosisText(e.target.value)}
-                  placeholder="Enter diagnosis (comma-separated)..."
-                  rows={4}
-                  className={textareaClass}
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Treatment</label>
-                <textarea
-                  value={treatmentText}
-                  onChange={(e) => setTreatmentText(e.target.value)}
-                  placeholder="Enter treatment (comma-separated)..."
-                  rows={4}
-                  className={textareaClass}
-                />
-              </div>
-            </div>
-
-            {/* Treatment + Additional Notes Row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-              <div>
-                <label className={labelClass}>Treatment</label>
-                <textarea
-                  value={treatmentText}
-                  onChange={(e) => setTreatmentText(e.target.value)}
-                  placeholder="Treatment details..."
-                  rows={4}
-                  className={textareaClass}
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Additional Notes (Optional)</label>
-                <textarea
-                  value={additionalNotes}
-                  onChange={(e) => setAdditionalNotes(e.target.value)}
-                  placeholder="Additional notes..."
-                  rows={4}
-                  className={textareaClass}
-                />
-              </div>
-            </div>
-
-            {/* ── Prescription Section ── */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <label className={cn(labelClass, 'mb-0')}>Prescription</label>
-                <button
-                  type="button"
-                  onClick={addPrescriptionItem}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-bold transition-colors shadow-sm"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  Add
-                </button>
-              </div>
-
-              {/* Existing prescription items */}
-              {prescriptionItems.length > 0 && (
-                <div className="space-y-2 mb-4">
-                  {prescriptionItems.map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center gap-3 bg-slate-50 rounded-lg px-3.5 py-2.5 text-sm border border-slate-100"
-                    >
-                      <span className="font-semibold text-slate-700 flex-1 min-w-0 truncate">
-                        {item.medicineName}
-                      </span>
-                      {item.dosage && (
-                        <span className="text-slate-500 text-xs shrink-0">{item.dosage}</span>
-                      )}
-                      {item.frequency && (
-                        <span className="text-slate-500 text-xs shrink-0">{item.frequency}</span>
-                      )}
-                      {item.duration && (
-                        <span className="text-slate-500 text-xs shrink-0">{item.duration}</span>
-                      )}
-                      <button
-                        onClick={() => removePrescriptionItem(idx)}
-                        className="text-slate-400 hover:text-rose-500 transition-colors shrink-0"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* New prescription input row */}
-              <div className="space-y-3">
+                <label className={cardLabelClass}>Diagnosed</label>
                 <input
-                  value={newMedicine}
-                  onChange={(e) => setNewMedicine(e.target.value)}
-                  placeholder="Medicine Name"
-                  className={inputClass}
+                  value={diagnosisInput}
+                  onChange={(e) => setDiagnosisInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ',') {
+                      e.preventDefault();
+                      addTag(diagnosisInput, setDiagnosisTags, () => setDiagnosisInput(''));
+                    }
+                  }}
+                  onBlur={() => addTag(diagnosisInput, setDiagnosisTags, () => setDiagnosisInput(''))}
+                  placeholder="Type a diagnosis and press Enter"
+                  className={fieldClass}
                 />
+                {diagnosisTags.length > 0 && (
+                  <div className="flex gap-2 overflow-x-auto scrollbar-hide mt-3 pb-1">
+                    {diagnosisTags.map((tag, idx) => (
+                      <span
+                        key={idx}
+                        className="inline-flex items-center gap-1.5 shrink-0 rounded-lg bg-slate-100 border border-slate-200 px-3 py-2 text-xs font-medium text-slate-600"
+                      >
+                        {tag}
+                        <button
+                          type="button"
+                          onClick={() => setDiagnosisTags((prev) => prev.filter((_, i) => i !== idx))}
+                          className="text-slate-400 hover:text-rose-500 transition-colors"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
 
-                <div className="grid grid-cols-3 gap-3">
+              {/* Prescription */}
+              <div>
+                <label className={cardLabelClass}>Prescription</label>
+
+                {/* Added prescription items as chips */}
+                {prescriptionItems.length > 0 && (
+                  <div className="flex gap-2 overflow-x-auto scrollbar-hide mb-3 pb-1">
+                    {prescriptionItems.map((item, idx) => (
+                      <span
+                        key={idx}
+                        className="inline-flex items-center gap-2 shrink-0 rounded-lg bg-slate-100 border border-slate-200 px-3 py-2 text-xs font-medium text-slate-600"
+                      >
+                        <span className="font-semibold text-slate-700">{item.medicineName}</span>
+                        {item.dosage && <span className="text-slate-400">{item.dosage}</span>}
+                        {item.frequency && <span className="text-slate-400">{item.frequency}</span>}
+                        {item.duration && <span className="text-slate-400">{item.duration}</span>}
+                        <button
+                          type="button"
+                          onClick={() => removePrescriptionItem(idx)}
+                          className="text-slate-400 hover:text-rose-500 transition-colors"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Medicine name + Add */}
+                <div className="flex gap-3">
+                  <div className="flex-1">
+                    <input
+                      value={newMedicine}
+                      onChange={(e) => setNewMedicine(e.target.value)}
+                      placeholder="Medicine Name"
+                      className={fieldClass}
+                    />
+                    <p className="text-xs text-slate-400 mt-1.5 ml-1">Medicine Name</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={addPrescriptionItem}
+                    className="h-[46px] flex items-center gap-1.5 px-4 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-sm font-bold transition-colors shadow-sm shrink-0"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add
+                  </button>
+                </div>
+
+                {/* Dosage / Frequency / Duration */}
+                <div className="grid grid-cols-3 gap-3 mt-3">
                   <input
                     value={newDosage}
                     onChange={(e) => setNewDosage(e.target.value)}
-                    placeholder="Dosage (e.g. 100mg)"
-                    className={inputClass}
+                    placeholder="Dosage (e.g. 500mg)"
+                    className={fieldClass}
                   />
                   <input
                     value={newFrequency}
                     onChange={(e) => setNewFrequency(e.target.value)}
-                    placeholder="Frequency (e.g. 3x/day)"
-                    className={inputClass}
+                    placeholder="Frequency (e.g. 2x/day)"
+                    className={fieldClass}
                   />
                   <input
                     value={newDuration}
                     onChange={(e) => setNewDuration(e.target.value)}
-                    placeholder="Duration (e.g. 4 weeks)"
-                    className={inputClass}
+                    placeholder="Duration (e.g. 5 days)"
+                    className={fieldClass}
                   />
                 </div>
+
+                {prescriptionItems.length > 0 && (
+                  <div className="mt-4">
+                    <span className="inline-block px-4 py-2 bg-sky-600 text-white rounded-lg text-xs font-bold">
+                      Total Prescriptions: {prescriptionItems.length}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* ─── RIGHT CARD: Treatment + Additional Notes ─── */}
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-md p-6 sm:p-7 flex flex-col">
+              {/* Treatment */}
+              <div>
+                <label className={cardLabelClass}>Treatment</label>
+                <input
+                  value={treatmentInput}
+                  onChange={(e) => setTreatmentInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ',') {
+                      e.preventDefault();
+                      addTag(treatmentInput, setTreatmentTags, () => setTreatmentInput(''));
+                    }
+                  }}
+                  onBlur={() => addTag(treatmentInput, setTreatmentTags, () => setTreatmentInput(''))}
+                  placeholder="Type a treatment and press Enter"
+                  className={fieldClass}
+                />
+                {treatmentTags.length > 0 && (
+                  <div className="flex gap-2 overflow-x-auto scrollbar-hide mt-3 pb-1">
+                    {treatmentTags.map((tag, idx) => (
+                      <span
+                        key={idx}
+                        className="inline-flex items-center gap-1.5 shrink-0 rounded-lg bg-slate-100 border border-slate-200 px-3 py-2 text-xs font-medium text-slate-600"
+                      >
+                        {tag}
+                        <button
+                          type="button"
+                          onClick={() => setTreatmentTags((prev) => prev.filter((_, i) => i !== idx))}
+                          className="text-slate-400 hover:text-rose-500 transition-colors"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              {/* Total Prescriptions button */}
-              {prescriptionItems.length > 0 && (
-                <div className="mt-4">
-                  <span className="inline-block px-4 py-2 bg-sky-600 text-white rounded-lg text-xs font-bold">
-                    Total Prescriptions: {prescriptionItems.length}
-                  </span>
-                </div>
-              )}
+              {/* Additional Notes */}
+              <div className="mt-6 flex-1 flex flex-col">
+                <label className={cardLabelClass}>Additional Notes (Optional)</label>
+                <textarea
+                  value={additionalNotes}
+                  onChange={(e) => setAdditionalNotes(e.target.value)}
+                  placeholder="Any additional notes..."
+                  className={cn(fieldClass, 'flex-1 min-h-[260px] resize-none')}
+                />
+              </div>
             </div>
           </fieldset>
         </section>

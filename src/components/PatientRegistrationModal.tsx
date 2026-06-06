@@ -123,7 +123,7 @@ export const PatientRegistrationModal: React.FC<Props> = ({ isOpen, onClose, doc
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+            className="absolute inset-0 bg-slate-100/40 backdrop-blur-sm"
           />
 
           <motion.div
@@ -131,7 +131,7 @@ export const PatientRegistrationModal: React.FC<Props> = ({ isOpen, onClose, doc
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 10 }}
             transition={{ type: 'spring', duration: 0.5, bounce: 0.3 }}
-            className="relative bg-slate-50 rounded-3xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col"
+            className="relative bg-slate-50/40 backdrop-blur-3xl rounded-3xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col"
           >
             {/* Header */}
             <div className="flex items-center justify-between px-7 py-5 shrink-0">

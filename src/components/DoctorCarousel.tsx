@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronRight, ChevronLeft } from 'lucide-react';
 import { DoctorWithCount } from '../types';
+import { cn } from '../utils/cn';
 import DoctorFolderCard from './DoctorFolderCard';
 
 interface Props {
@@ -71,19 +72,22 @@ export const DoctorCarousel: React.FC<Props> = ({ doctors }) => {
       {/* Scrolling track */}
       <div
         ref={trackRef}
-        className="flex gap-5 overflow-x-auto scrollbar-hide scroll-smooth snap-x snap-mandatory py-1"
+        className="flex items-center gap-5 overflow-x-auto scrollbar-hide scroll-smooth snap-x snap-mandatory py-1"
       >
-        {doctors.map((doc, i) => (
-          <motion.div
-            key={doc._id || doc.id}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: Math.min(i, 6) * 0.06 }}
-            className="snap-start shrink-0 w-[240px]"
-          >
-            <DoctorFolderCard doctor={doc} active={i === 0} />
-          </motion.div>
-        ))}
+        {doctors.map((doc, i) => {
+          const isActive = i === 0;
+          return (
+            <motion.div
+              key={doc._id || doc.id}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: Math.min(i, 6) * 0.06 }}
+              className={cn('snap-start shrink-0', isActive ? 'w-[280px]' : 'w-[200px]')}
+            >
+              <DoctorFolderCard doctor={doc} active={isActive} />
+            </motion.div>
+          );
+        })}
       </div>
 
       {/* Right arrow */}
