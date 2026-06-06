@@ -9,6 +9,7 @@ interface PatientState {
   fetchPatients: () => Promise<void>;
   searchPatients: (query: string) => Promise<void>;
   createPatient: (data: any) => Promise<Patient>;
+  updatePatient: (id: string, data: any) => Promise<Patient>;
 }
 
 export const usePatientStore = create<PatientState>((set, get) => ({
@@ -47,6 +48,15 @@ export const usePatientStore = create<PatientState>((set, get) => ({
       searchResults: [patient, ...state.searchResults]
     }));
     return patient;
+  },
+
+  updatePatient: async (id: string, data: any) => {
+    const updated = await patientService.updatePatient(id, data);
+    set((state) => ({
+      patients: state.patients.map((p) => (p._id === id ? updated : p)),
+      searchResults: state.searchResults.map((p) => (p._id === id ? updated : p))
+    }));
+    return updated;
   }
 }));
 

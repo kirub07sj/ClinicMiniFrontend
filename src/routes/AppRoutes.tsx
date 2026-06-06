@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import useAuthStore from '../stores/useAuthStore';
 import RootLayout from '../layouts/RootLayout';
+import PortalLayout from '../layouts/PortalLayout';
 import AuthLayout from '../layouts/AuthLayout';
 import Login from '../pages/Login';
 import AdminDashboard from '../pages/Admin/AdminDashboard';
@@ -91,33 +92,37 @@ export const AppRoutes: React.FC = () => {
         <Route path="/login" element={<Login />} />
       </Route>
 
-      {/* Protected Main Routes */}
+      {/* Admin keeps the dark sidebar layout */}
       <Route element={<ProtectedRoute><RootLayout /></ProtectedRoute>}>
         <Route path="/" element={<RootRedirect />} />
-        
-        <Route 
-          path="/admin" 
+
+        <Route
+          path="/admin"
           element={
             <RoleRoute allowedRole="admin">
               <AdminDashboard />
             </RoleRoute>
-          } 
+          }
         />
-        <Route 
-          path="/receptionist" 
+      </Route>
+
+      {/* Reception & Doctor use the Dentonic top-navbar layout */}
+      <Route element={<ProtectedRoute><PortalLayout /></ProtectedRoute>}>
+        <Route
+          path="/receptionist"
           element={
             <RoleRoute allowedRole="receptionist">
               <ReceptionistDashboard />
             </RoleRoute>
-          } 
+          }
         />
-        <Route 
-          path="/doctor" 
+        <Route
+          path="/doctor"
           element={
             <RoleRoute allowedRole="doctor">
               <DoctorDashboard />
             </RoleRoute>
-          } 
+          }
         />
       </Route>
 

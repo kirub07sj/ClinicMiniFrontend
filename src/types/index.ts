@@ -10,6 +10,13 @@ export interface User {
   updatedAt?: string;
 }
 
+export interface MedicalInfo {
+  diagnosisTags?: string[];
+  treatmentTags?: string[];
+  prescription?: string;
+  additionalInfo?: string;
+}
+
 export interface Patient {
   _id: string;
   patientId: string; // Custom short ID (PAT-00001)
@@ -19,6 +26,7 @@ export interface Patient {
   dateOfBirth: string;
   gender: 'male' | 'female' | 'other';
   address?: string;
+  medicalInfo?: MedicalInfo;
   createdAt?: string;
   updatedAt?: string;
 }
