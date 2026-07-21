@@ -1,6 +1,11 @@
 import { create } from 'zustand';
 import { Notification } from '../types';
 import notificationService from '../services/notification.service';
+import { useAppointmentStore } from './useAppointmentStore';
+import usePatientStore from './usePatientStore';
+import notificationSound from '../assets/universfield-new-notification-040-493469.mp3';
+
+const audio = new Audio(notificationSound);
 
 interface NotificationState {
   notifications: Notification[];
@@ -12,7 +17,7 @@ interface NotificationState {
   markAllAsRead: () => Promise<void>;
 }
 
-export const useNotificationStore = create<NotificationState>((set) => ({
+export const useNotificationStore = create<NotificationState>((set, get) => ({
   notifications: [],
   unreadCount: 0,
   loading: false,
@@ -29,8 +34,18 @@ export const useNotificationStore = create<NotificationState>((set) => ({
 
   fetchUnreadCount: async () => {
     try {
+      const prevCount = get().unreadCount;
       const count = await notificationService.getUnreadCount();
       set({ unreadCount: count });
+
+      // If new notifications arrived, refresh table data and play sound
+      if (count > prevCount) {
+        audio.currentTime = 0;
+        audio.play().catch(() => {});
+        useAppointmentStore.getState().fetchAppointments();
+        useAppointmentStore.getState().fetchDoctorsWithCounts();
+        usePatientStore.getState().fetchPatients();
+      }
     } catch {
       // silently fail
     }
