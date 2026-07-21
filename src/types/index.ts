@@ -53,6 +53,18 @@ export interface AuthResponse {
   token: string;
 }
 
+export interface Notification {
+  _id: string;
+  userId: string;
+  type: 'patient_assigned';
+  title: string;
+  message: string;
+  appointmentId: Appointment | string;
+  read: boolean;
+  createdAt: string;
+  updatedAt?: string;
+}
+
 export interface DashboardStats {
   totalDoctors: number;
   totalReceptionists: number;

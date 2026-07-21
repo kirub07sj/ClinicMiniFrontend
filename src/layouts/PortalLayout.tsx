@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Outlet, useNavigate, useOutletContext } from 'react-router-dom';
-import { Search, Bell, ChevronDown, LogOut } from 'lucide-react';
+import { Search, ChevronDown, LogOut } from 'lucide-react';
 import useAuthStore from '../stores/useAuthStore';
+import NotificationDropdown from '../components/NotificationDropdown';
 
 /** Shape of the context the navbar shares with the page below it. */
 interface PortalContext {
@@ -69,13 +70,7 @@ export const PortalLayout: React.FC = () => {
 
           {/* Actions */}
           <div className="flex items-center gap-3 shrink-0">
-            <button
-              type="button"
-              className="w-10 h-10 rounded-full bg-white hover:bg-slate-100 flex items-center justify-center text-slate-500 transition-colors"
-              aria-label="Notifications"
-            >
-              <Bell className="w-5 h-5" />
-            </button>
+            <NotificationDropdown />
 
             <div className="relative">
               <button

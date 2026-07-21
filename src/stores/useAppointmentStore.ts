@@ -6,6 +6,7 @@ interface AppointmentState {
   appointments: Appointment[];
   doctorsWithCounts: DoctorWithCount[];
   loading: boolean;
+  doctorsLoading: boolean;
   fetchAppointments: (params?: any) => Promise<void>;
   fetchDoctorsWithCounts: () => Promise<void>;
   createAppointment: (data: any) => Promise<Appointment>;
@@ -16,6 +17,7 @@ export const useAppointmentStore = create<AppointmentState>((set, get) => ({
   appointments: [],
   doctorsWithCounts: [],
   loading: false,
+  doctorsLoading: false,
 
   fetchAppointments: async (params?: any) => {
     set({ loading: true });
@@ -28,11 +30,12 @@ export const useAppointmentStore = create<AppointmentState>((set, get) => ({
   },
 
   fetchDoctorsWithCounts: async () => {
+    set({ doctorsLoading: true });
     try {
       const doctors = await appointmentService.getDoctorsWithCounts();
-      set({ doctorsWithCounts: doctors });
+      set({ doctorsWithCounts: doctors, doctorsLoading: false });
     } catch {
-      // silently fail
+      set({ doctorsLoading: false });
     }
   },
 
