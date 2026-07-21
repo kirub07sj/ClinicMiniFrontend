@@ -35,6 +35,7 @@ export const ReceptionistDashboard: React.FC = () => {
     fetchDoctorsWithCounts,
     createAppointment,
     loading: appointmentsLoading,
+    doctorsLoading,
   } = useAppointmentStore();
 
   const { searchQuery } = usePortalSearch();
@@ -134,7 +135,14 @@ export const ReceptionistDashboard: React.FC = () => {
             {/* Available Doctors */}
             <section>
               <h3 className="text-lg font-bold text-slate-800 mb-4">Available Doctors</h3>
-              {doctorsWithCounts.length === 0 ? (
+              {doctorsLoading ? (
+                <div className="flex items-center gap-5 overflow-x-auto scrollbar-hide py-1">
+                  <div className="w-[280px] h-[140px] bg-slate-100 animate-pulse rounded-2xl shrink-0 border border-slate-200" />
+                  <div className="w-[200px] h-[140px] bg-slate-100 animate-pulse rounded-2xl shrink-0 border border-slate-200" />
+                  <div className="w-[200px] h-[140px] bg-slate-100 animate-pulse rounded-2xl shrink-0 border border-slate-200" />
+                  <div className="w-[200px] h-[140px] bg-slate-100 animate-pulse rounded-2xl shrink-0 border border-slate-200" />
+                </div>
+              ) : doctorsWithCounts.length === 0 ? (
                 <p className="text-slate-400 text-sm">No doctors registered yet.</p>
               ) : (
                 <DoctorCarousel doctors={doctorsWithCounts} />
