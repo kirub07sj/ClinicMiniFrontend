@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Bell, Check, CheckCheck, UserPlus } from 'lucide-react';
+import { Bell, CheckCheck, UserPlus } from 'lucide-react';
 import useNotificationStore from '../stores/useNotificationStore';
 import { formatDate } from '../utils/format';
 
