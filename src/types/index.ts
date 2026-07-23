@@ -6,6 +6,7 @@ export interface User {
   phone?: string;
   specialization?: string;
   role: 'admin' | 'doctor' | 'receptionist';
+  isActive?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -15,6 +16,11 @@ export interface MedicalInfo {
   treatmentTags?: string[];
   prescription?: string;
   additionalInfo?: string;
+}
+
+export interface MedicalHistory extends MedicalInfo {
+  _id?: string;
+  visitDate: string;
 }
 
 export interface Patient {
@@ -27,6 +33,7 @@ export interface Patient {
   gender: 'male' | 'female' | 'other';
   address?: string;
   medicalInfo?: MedicalInfo;
+  history?: MedicalHistory[];
   createdAt?: string;
   updatedAt?: string;
 }

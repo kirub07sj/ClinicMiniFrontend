@@ -4,8 +4,9 @@ import StaffRegistrationModal from '../../components/StaffRegistrationModal';
 import EditStaffModal from '../../components/EditStaffModal';
 import SearchBar from '../../components/SearchBar';
 import ConfirmModal from '../../components/ConfirmModal';
-import { Users, Stethoscope, UserCheck, Calendar, UserPlus, Pencil, Key } from 'lucide-react';
+import { Users, Stethoscope, UserCheck, UserX, Calendar, UserPlus, Pencil, Key } from 'lucide-react';
 import { User } from '../../types';
+import toast from 'react-hot-toast';
 
 export const AdminDashboard: React.FC = () => {
   const { staff, stats, loading, fetchStaff, fetchStats, registerStaff, updateStaff } = useAdminStore();
@@ -36,6 +37,16 @@ export const AdminDashboard: React.FC = () => {
     setShowEditModal(true);
   };
 
+  const handleToggleStatus = async (user: User) => {
+    try {
+      const newStatus = user.isActive === false ? true : false;
+      await updateStaff(user._id || user.id, { isActive: newStatus });
+      toast.success(`${user.name} is now ${newStatus ? 'Activated' : 'Deactivated'}`);
+    } catch (err: any) {
+      toast.error('Failed to update status');
+    }
+  };
+
   const filteredStaff = staff.filter((member) => 
     member.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     member.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -52,9 +63,9 @@ export const AdminDashboard: React.FC = () => {
     try {
       const { authService } = await import('../../services/auth.service');
       await authService.adminResetPassword(resetTarget.id);
-      alert(`Password for ${resetTarget.name} reset successfully!`);
+      toast.success(`Password for ${resetTarget.name} reset successfully!`);
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to reset password');
+      toast.error(err.response?.data?.message || 'Failed to reset password');
     }
   };
 
@@ -145,6 +156,7 @@ export const AdminDashboard: React.FC = () => {
                   <th className="text-left px-6 py-3 font-semibold">Role</th>
                   <th className="text-left px-6 py-3 font-semibold">Specialization</th>
                   <th className="text-left px-6 py-3 font-semibold">Phone</th>
+                  <th className="text-center px-6 py-3 font-semibold">Status</th>
                   <th className="text-center px-6 py-3 font-semibold">Actions</th>
                 </tr>
               </thead>
@@ -164,7 +176,27 @@ export const AdminDashboard: React.FC = () => {
                     <td className="px-6 py-4 text-slate-600">{member.specialization || '—'}</td>
                     <td className="px-6 py-4 text-slate-600">{member.phone || '—'}</td>
                     <td className="px-6 py-4 text-center">
+                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                        member.isActive !== false 
+                          ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' 
+                          : 'bg-rose-50 text-rose-600 border border-rose-100'
+                      }`}>
+                        {member.isActive !== false ? 'Active' : 'Inactive'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-center">
                       <div className="flex justify-center items-center gap-2">
+                        <button 
+                          onClick={() => handleToggleStatus(member)}
+                          className={`p-2 rounded-lg transition-colors inline-flex items-center justify-center ${
+                            member.isActive !== false 
+                              ? 'text-rose-400 hover:text-rose-600 hover:bg-rose-50' 
+                              : 'text-emerald-400 hover:text-emerald-600 hover:bg-emerald-50'
+                          }`}
+                          title={member.isActive !== false ? "Deactivate User" : "Activate User"}
+                        >
+                          {member.isActive !== false ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
+                        </button>
                         <button 
                           onClick={() => handleManualResetPasswordClick(member._id || member.id, member.name)}
                           className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors inline-flex items-center justify-center"

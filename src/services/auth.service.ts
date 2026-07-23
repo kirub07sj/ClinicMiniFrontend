@@ -15,6 +15,11 @@ export const authService = {
     return response.data;
   },
 
+  updateProfile: async (data: Partial<User> & { password?: string }): Promise<{ user: User }> => {
+    const response = await api.put<{ user: User }>('/auth/profile', data);
+    return response.data;
+  },
+
   requestPasswordReset: async (email: string): Promise<{ message: string }> => {
     const response = await api.post<{ message: string }>('/auth/reset-password-request', { email });
     return response.data;

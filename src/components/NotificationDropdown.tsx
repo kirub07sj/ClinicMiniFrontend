@@ -4,6 +4,7 @@ import useNotificationStore from '../stores/useNotificationStore';
 import { formatDate } from '../utils/format';
 import authService from '../services/auth.service';
 import ConfirmModal from './ConfirmModal';
+import toast from 'react-hot-toast';
 
 const NotificationDropdown: React.FC = () => {
   const {
@@ -67,10 +68,10 @@ const NotificationDropdown: React.FC = () => {
     if (!resetTarget) return;
     try {
       await authService.confirmPasswordReset(resetTarget.id);
-      alert('Password reset successfully!');
+      toast.success('Password reset successfully!');
       fetchNotifications();
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to reset password');
+      toast.error(err.response?.data?.message || 'Failed to reset password');
     }
   };
 

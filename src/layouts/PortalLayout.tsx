@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Outlet, useNavigate, useOutletContext } from 'react-router-dom';
-import { Search, ChevronDown, LogOut } from 'lucide-react';
+import { Search, ChevronDown, LogOut, User } from 'lucide-react';
 import useAuthStore from '../stores/useAuthStore';
 import NotificationDropdown from '../components/NotificationDropdown';
 
@@ -94,6 +94,14 @@ export const PortalLayout: React.FC = () => {
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
                   <div className="absolute right-0 mt-2 w-44 bg-white rounded-xl shadow-lg border border-slate-100 py-1.5 z-20">
+                    <button
+                      type="button"
+                      onClick={() => { setMenuOpen(false); navigate('/profile'); }}
+                      className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+                    >
+                      <User className="w-4 h-4" />
+                      Profile
+                    </button>
                     <button
                       type="button"
                       onClick={handleLogout}

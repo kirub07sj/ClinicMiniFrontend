@@ -9,6 +9,7 @@ import PasswordResetRequest from '../pages/PasswordResetRequest';
 import AdminDashboard from '../pages/Admin/AdminDashboard';
 import ReceptionistDashboard from '../pages/Receptions/ReceptionistDashboard';
 import DoctorDashboard from '../pages/Doctors/DoctorDashboard';
+import Profile from '../pages/Profile';
 
 const RoleRoute: React.FC<{ children: React.ReactNode, allowedRole: string }> = ({ children, allowedRole }) => {
   const { user, loading } = useAuthStore();
@@ -99,6 +100,7 @@ export const AppRoutes: React.FC = () => {
       {/* Portal Layout for all roles */}
       <Route element={<ProtectedRoute><PortalLayout /></ProtectedRoute>}>
         <Route path="/" element={<RootRedirect />} />
+        <Route path="/profile" element={<Profile />} />
         
         <Route
           path="/admin"
