@@ -5,9 +5,11 @@ import RootLayout from '../layouts/RootLayout';
 import PortalLayout from '../layouts/PortalLayout';
 import AuthLayout from '../layouts/AuthLayout';
 import Login from '../pages/Login';
+import PasswordResetRequest from '../pages/PasswordResetRequest';
 import AdminDashboard from '../pages/Admin/AdminDashboard';
 import ReceptionistDashboard from '../pages/Receptions/ReceptionistDashboard';
 import DoctorDashboard from '../pages/Doctors/DoctorDashboard';
+import Profile from '../pages/Profile';
 
 const RoleRoute: React.FC<{ children: React.ReactNode, allowedRole: string }> = ({ children, allowedRole }) => {
   const { user, loading } = useAuthStore();
@@ -90,12 +92,16 @@ export const AppRoutes: React.FC = () => {
       {/* Public Auth Routes */}
       <Route element={<PublicRoute><AuthLayout /></PublicRoute>}>
         <Route path="/login" element={<Login />} />
+        <Route path="/forgot-password" element={<PasswordResetRequest />} />
       </Route>
 
-      {/* Admin keeps the dark sidebar layout */}
-      <Route element={<ProtectedRoute><RootLayout /></ProtectedRoute>}>
-        <Route path="/" element={<RootRedirect />} />
+      {/* The dark sidebar layout is no longer used, so we removed it. */}
 
+      {/* Portal Layout for all roles */}
+      <Route element={<ProtectedRoute><PortalLayout /></ProtectedRoute>}>
+        <Route path="/" element={<RootRedirect />} />
+        <Route path="/profile" element={<Profile />} />
+        
         <Route
           path="/admin"
           element={
@@ -104,10 +110,6 @@ export const AppRoutes: React.FC = () => {
             </RoleRoute>
           }
         />
-      </Route>
-
-      {/* Reception & Doctor use the Dentonic top-navbar layout */}
-      <Route element={<ProtectedRoute><PortalLayout /></ProtectedRoute>}>
         <Route
           path="/receptionist"
           element={

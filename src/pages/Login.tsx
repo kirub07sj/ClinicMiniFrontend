@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Eye, EyeOff, Lock, Mail, Loader2 } from 'lucide-react';
 import useAuthStore from '../stores/useAuthStore';
@@ -122,9 +122,9 @@ export const Login: React.FC = () => {
             <input type="checkbox" className="w-4 h-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500 transition-colors" />
             <span className="text-sm font-medium text-slate-600">Remember me</span>
           </label>
-          <a href="#" className="text-sm font-semibold text-sky-600 hover:text-sky-700 transition-colors">
+          <Link to="/forgot-password" className="text-sm font-semibold text-sky-600 hover:text-sky-700 transition-colors">
             Forgot password?
-          </a>
+          </Link>
         </motion.div>
 
         <motion.div variants={itemVariants}>

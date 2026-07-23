@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { ArrowLeft, Plus, Save, Loader2, X, ChevronRight, CheckCircle, Lock } from 'lucide-react';
+import { ArrowLeft, Plus, Save, Loader2, X, ChevronRight, CheckCircle, Lock, ChevronDown, ChevronUp } from 'lucide-react';
 import { Patient, MedicalInfo, Appointment } from '../types';
 import { cn } from '../utils/cn';
 import useAppointmentStore from '../stores/useAppointmentStore';
@@ -213,7 +213,20 @@ export const PatientDetailPage: React.FC<Props> = ({ patient, role, onBack, onUp
   const handleComplete = async () => {
     setSaving(true);
     try {
-      await onUpdate(patient._id, buildPayload());
+      const payload: any = buildPayload();
+      
+      // Save current medical info to history, then clear current medical info
+      if (isDoctor) {
+        const historyEntry = {
+          ...payload.medicalInfo,
+          visitDate: new Date().toISOString()
+        };
+        payload.history = [...(patient.history || []), historyEntry];
+        payload.medicalInfo = EMPTY_MEDICAL;
+      }
+
+      await onUpdate(patient._id, payload);
+      
       if (activeAppointment) {
         await updateAppointment(activeAppointment._id, { status: 'completed' });
       }
@@ -264,8 +277,20 @@ export const PatientDetailPage: React.FC<Props> = ({ patient, role, onBack, onUp
     </button>
   );
 
+  const [expandedHistory, setExpandedHistory] = useState<Set<number>>(new Set());
+
+  const toggleHistory = (index: number) => {
+    const newExpanded = new Set(expandedHistory);
+    if (newExpanded.has(index)) {
+      newExpanded.delete(index);
+    } else {
+      newExpanded.add(index);
+    }
+    setExpandedHistory(newExpanded);
+  };
+
   return (
-    <div className="h-full overflow-hidden flex flex-col bg-slate-50/50 backdrop-blur-3xl fixed top-0 w-[80%] -ml-[40px]">
+    <div className="h-full overflow-hidden flex flex-col bg-slate-100 fixed top-0 w-[80%] -ml-[40px]">
       {/* ─── Top Row: Back + title ─── */}
       <div className="flex items-center justify-between px-6 sm:px-10 pt-6 pb-2 shrink-0">
         <button
@@ -582,6 +607,115 @@ export const PatientDetailPage: React.FC<Props> = ({ patient, role, onBack, onUp
             </div>
           </fieldset>
         </section>
+        )}
+
+        {/* ══════════════════════════════════════════
+            MEDICAL HISTORY SECTION
+           ══════════════════════════════════════════ */}
+        {patient.history && patient.history.length > 0 && (
+          <section className="mt-8">
+            <h3 className="text-base font-extrabold text-slate-800 mb-4">Medical History</h3>
+            <div className="space-y-4">
+              {[...patient.history].reverse().map((entry, idx) => {
+                const isExpanded = expandedHistory.has(idx);
+                const visitDate = new Date(entry.visitDate).toLocaleDateString('en-US', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric'
+                });
+                const pastPrescriptions = parsePrescription(entry.prescription || '');
+
+                return (
+                  <div key={idx} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden transition-all">
+                    <button
+                      onClick={() => toggleHistory(idx)}
+                      className="w-full flex items-center justify-between p-5 hover:bg-slate-50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-sm">
+                          {patient.history!.length - idx}
+                        </div>
+                        <div className="text-left">
+                          <p className="text-sm font-bold text-slate-800">Visit on {visitDate}</p>
+                          <p className="text-xs text-slate-500">
+                            {entry.diagnosisTags?.length || 0} Diagnoses • {pastPrescriptions.length} Prescriptions
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-slate-400">
+                        {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                      </div>
+                    </button>
+
+                    {isExpanded && (
+                      <div className="p-5 pt-0 border-t border-slate-100 mt-2">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                          <div>
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Diagnosed</p>
+                            {entry.diagnosisTags && entry.diagnosisTags.length > 0 ? (
+                              <div className="flex flex-wrap gap-2">
+                                {entry.diagnosisTags.map((tag, i) => (
+                                  <span key={i} className="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-md text-xs font-medium border border-slate-200">
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-sm text-slate-500 italic">None</p>
+                            )}
+                          </div>
+
+                          <div>
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Treatments</p>
+                            {entry.treatmentTags && entry.treatmentTags.length > 0 ? (
+                              <div className="flex flex-wrap gap-2">
+                                {entry.treatmentTags.map((tag, i) => (
+                                  <span key={i} className="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-md text-xs font-medium border border-slate-200">
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-sm text-slate-500 italic">None</p>
+                            )}
+                          </div>
+
+                          <div className="md:col-span-2">
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Prescriptions</p>
+                            {pastPrescriptions.length > 0 ? (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                {pastPrescriptions.map((item, i) => (
+                                  <div key={i} className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                    <p className="font-bold text-slate-700 text-sm">{item.medicineName}</p>
+                                    <div className="text-xs text-slate-500 mt-1 space-x-2">
+                                      {item.dosage && <span>{item.dosage}</span>}
+                                      {item.frequency && <span>• {item.frequency}</span>}
+                                      {item.duration && <span>• {item.duration}</span>}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-sm text-slate-500 italic">None</p>
+                            )}
+                          </div>
+
+                          {entry.additionalInfo && (
+                            <div className="md:col-span-2">
+                              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Additional Notes</p>
+                              <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 text-sm text-slate-700 whitespace-pre-wrap">
+                                {entry.additionalInfo}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
         )}
       </div>
     </div>
