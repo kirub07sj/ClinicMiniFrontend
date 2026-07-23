@@ -53,20 +53,22 @@ export const PortalLayout: React.FC = () => {
             </span>
           </div>
 
-          <div className="relative flex items-center gap-4 w-[60%]">
+          <div className="relative flex items-center justify-end flex-1 gap-4">
             {/* Search */}
-          <div className="flex-1 max-w-xl mx-auto">
-            <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search Patient by Phone number, Name, Card ID"
-                className="w-full pl-11 pr-4 py-2.5 rounded-full bg-white border border-slate-100 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:bg-white transition-all"
-              />
+          {user?.role !== 'admin' && (
+            <div className="flex-1 max-w-xl mx-auto">
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search Patient by Phone number, Name, Card ID"
+                  className="w-full pl-11 pr-4 py-2.5 rounded-full bg-white border border-slate-100 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:bg-white transition-all"
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Actions */}
           <div className="flex items-center gap-3 shrink-0">

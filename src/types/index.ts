@@ -56,10 +56,11 @@ export interface AuthResponse {
 export interface Notification {
   _id: string;
   userId: string;
-  type: 'patient_assigned';
+  type: 'patient_assigned' | 'password_reset';
   title: string;
   message: string;
-  appointmentId: Appointment | string;
+  appointmentId?: Appointment | string;
+  relatedUserId?: string;
   read: boolean;
   createdAt: string;
   updatedAt?: string;

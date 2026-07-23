@@ -1,7 +1,9 @@
 import React, { useEffect, useRef } from 'react';
-import { Bell, CheckCheck, UserPlus } from 'lucide-react';
+import { Bell, CheckCheck, UserPlus, Key } from 'lucide-react';
 import useNotificationStore from '../stores/useNotificationStore';
 import { formatDate } from '../utils/format';
+import authService from '../services/auth.service';
+import ConfirmModal from './ConfirmModal';
 
 const NotificationDropdown: React.FC = () => {
   const {
@@ -16,6 +18,8 @@ const NotificationDropdown: React.FC = () => {
 
   const [open, setOpen] = React.useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  
+  const [resetTarget, setResetTarget] = React.useState<{ id: string, name: string } | null>(null);
 
   useEffect(() => {
     fetchUnreadCount();
@@ -47,6 +51,26 @@ const NotificationDropdown: React.FC = () => {
   const handleNotificationClick = (id: string, read: boolean) => {
     if (!read) {
       markAsRead(id);
+    }
+  };
+
+  const handleResetPasswordClick = (e: React.MouseEvent, notificationId: string, message: string) => {
+    e.stopPropagation();
+    // Extract name from message if possible, or just pass a generic placeholder
+    // Message format: "John Doe (john@clinic.com) requested a password reset."
+    const nameMatch = message.split(' (')[0];
+    const name = nameMatch || 'this user';
+    setResetTarget({ id: notificationId, name });
+  };
+
+  const executePasswordReset = async () => {
+    if (!resetTarget) return;
+    try {
+      await authService.confirmPasswordReset(resetTarget.id);
+      alert('Password reset successfully!');
+      fetchNotifications();
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to reset password');
     }
   };
 
@@ -106,7 +130,7 @@ const NotificationDropdown: React.FC = () => {
                         : 'bg-slate-100 text-slate-400'
                     }`}
                   >
-                    <UserPlus className="w-4 h-4" />
+                    {notification.type === 'password_reset' ? <Key className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p
@@ -119,6 +143,15 @@ const NotificationDropdown: React.FC = () => {
                     <p className="text-[11px] text-slate-400 mt-1">
                       {formatDate(notification.createdAt)}
                     </p>
+                    {notification.type === 'password_reset' && !notification.read && (
+                      <button
+                        type="button"
+                        onClick={(e) => handleResetPasswordClick(e, notification._id, notification.message)}
+                        className="mt-2 px-3 py-1.5 bg-rose-100 text-rose-700 hover:bg-rose-200 rounded-md text-xs font-bold transition-colors"
+                      >
+                        Reset Password
+                      </button>
+                    )}
                   </div>
                   {!notification.read && (
                     <div className="mt-1 w-2 h-2 rounded-full bg-sky-500 shrink-0" />
@@ -129,6 +162,22 @@ const NotificationDropdown: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Password Reset Confirmation Modal */}
+      <ConfirmModal
+        isOpen={!!resetTarget}
+        onClose={() => setResetTarget(null)}
+        onConfirm={executePasswordReset}
+        title="Reset Password"
+        message={
+          <>
+            Are you sure you want to reset the password for <span className="font-bold text-slate-800">{resetTarget?.name}</span>? 
+            <br className="my-2" />
+            Their password will be changed to <span className="font-mono bg-slate-100 px-1 rounded text-slate-700">password123</span> by default.
+          </>
+        }
+        confirmText="Yes, Reset Password"
+      />
     </div>
   );
 };
