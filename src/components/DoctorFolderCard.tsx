@@ -55,7 +55,7 @@ export const DoctorFolderCard: React.FC<Props> = ({
       {/* Initials sitting inside the artwork's white circle */}
       <div
         className="absolute flex items-center justify-center"
-        style={{ left: '6%', top: '12%', width: '32%', height: '40%' }}
+        style={{ left: '8%', top: '14%', width: '32%', height: '40%' }}
       >
         <span className="font-extrabold text-slate-400 text-base sm:text-lg leading-none">
           {getInitials(doctor.name)}
@@ -84,7 +84,7 @@ export const DoctorFolderCard: React.FC<Props> = ({
       {/* Count sitting over the artwork's small rounded square */}
       <div
         className="absolute flex items-center justify-center"
-        style={{ right: '6.5%', bottom: '11%', width: '17%', height: '24%' }}
+        style={{ right: '8.5%', bottom: '10%', width: '17%', height: '24%' }}
       >
         <span
           className={cn(

@@ -120,7 +120,7 @@ export const PortalLayout: React.FC = () => {
       </div>
 
       {/* Scrollable page area — white card fills it, scroll lives inside the card */}
-      <div className="flex-1 overflow-hidden max-w-7xl w-full mx-auto px-4 sm:px-6 pb-5 pt-5">
+      <div className="flex-1 overflow-y-auto scrollbar-transparent max-w-7xl w-full mx-auto px-4 sm:px-6 pb-5 pt-5">
         <Outlet context={{ searchQuery, setSearchQuery } satisfies PortalContext} />
       </div>
     </div>
