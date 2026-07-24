@@ -59,12 +59,21 @@ export const ReceptionistDashboard: React.FC = () => {
 
   // Register patient + assign doctor (creates appointment so count reflects assignment)
   const handleRegister = async (payload: RegistrationPayload) => {
-    const newPatient = await createPatient(payload.patient);
+    let patientId = payload.patientId;
+    if (!payload.isExistingPatient && payload.patient) {
+      const newPatient = await createPatient(payload.patient);
+      patientId = newPatient._id;
+    }
+    
+    if (!patientId) {
+      throw new Error("Patient selection is required");
+    }
+
     await createAppointment({
-      patientId: newPatient._id,
+      patientId,
       doctorId: payload.doctorId,
       appointmentDate: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
-      reason: 'Initial consultation',
+      reason: payload.isExistingPatient ? 'Follow-up consultation' : 'Initial consultation',
       notes: payload.additionalInfo,
     });
     fetchAppointments();
@@ -252,6 +261,8 @@ export const ReceptionistDashboard: React.FC = () => {
         isOpen={showRegisterModal}
         onClose={() => setShowRegisterModal(false)}
         doctors={doctorsWithCounts}
+        patients={searchResults}
+        appointments={appointments}
         onSubmit={handleRegister}
       />
 

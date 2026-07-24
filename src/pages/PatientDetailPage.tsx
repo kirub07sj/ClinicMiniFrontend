@@ -615,9 +615,10 @@ export const PatientDetailPage: React.FC<Props> = ({ patient, role, onBack, onUp
         {patient.history && patient.history.length > 0 && (
           <section className="mt-8">
             <h3 className="text-base font-extrabold text-slate-800 mb-4">Medical History</h3>
-            <div className="space-y-4">
+            <div className="flex flex-col gap-6 ml-2">
               {[...patient.history].reverse().map((entry, idx) => {
                 const isExpanded = expandedHistory.has(idx);
+                const isLast = idx === patient.history!.length - 1;
                 const visitDate = new Date(entry.visitDate).toLocaleDateString('en-US', {
                   year: 'numeric',
                   month: 'long',
@@ -626,26 +627,29 @@ export const PatientDetailPage: React.FC<Props> = ({ patient, role, onBack, onUp
                 const pastPrescriptions = parsePrescription(entry.prescription || '');
 
                 return (
-                  <div key={idx} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden transition-all">
-                    <button
-                      onClick={() => toggleHistory(idx)}
-                      className="w-full flex items-center justify-between p-5 hover:bg-slate-50 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-sm">
-                          {patient.history!.length - idx}
-                        </div>
+                  <div key={idx} className="relative flex gap-5">
+                    {/* Timeline Line & Dot */}
+                    <div className="relative flex flex-col items-center shrink-0 w-6">
+                      <div className="w-3.5 h-3.5 rounded-full bg-sky-500 ring-[6px] ring-sky-50 z-10 mt-6" />
+                      {!isLast && <div className="absolute top-[38px] bottom-[-24px] w-[2px] bg-slate-200 left-1/2 -translate-x-1/2" />}
+                    </div>
+
+                    {/* Content Card */}
+                    <div className="flex-1 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden transition-all">
+                      <button
+                        onClick={() => toggleHistory(idx)}
+                        className="w-full flex items-center justify-between p-5 hover:bg-slate-50 transition-colors"
+                      >
                         <div className="text-left">
                           <p className="text-sm font-bold text-slate-800">Visit on {visitDate}</p>
-                          <p className="text-xs text-slate-500">
+                          <p className="text-xs text-slate-500 mt-1">
                             {entry.diagnosisTags?.length || 0} Diagnoses • {pastPrescriptions.length} Prescriptions
                           </p>
                         </div>
-                      </div>
-                      <div className="text-slate-400">
-                        {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-                      </div>
-                    </button>
+                        <div className="text-slate-400">
+                          {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                        </div>
+                      </button>
 
                     {isExpanded && (
                       <div className="p-5 pt-0 border-t border-slate-100 mt-2">
@@ -711,6 +715,7 @@ export const PatientDetailPage: React.FC<Props> = ({ patient, role, onBack, onUp
                         </div>
                       </div>
                     )}
+                    </div>
                   </div>
                 );
               })}

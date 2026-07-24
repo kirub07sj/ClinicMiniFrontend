@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import useAuthStore from '../stores/useAuthStore';
-import RootLayout from '../layouts/RootLayout';
 import PortalLayout from '../layouts/PortalLayout';
 import AuthLayout from '../layouts/AuthLayout';
 import Login from '../pages/Login';
