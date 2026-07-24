@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Mail, Loader2, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import authService from '../services/auth.service';
 import { cn } from '../utils/cn';
 
 export const PasswordResetRequest: React.FC = () => {
-  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);

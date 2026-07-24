@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import { ArrowLeft } from 'lucide-react';
 
 export const Profile: React.FC = () => {
-  const { user, login } = useAuthStore();
+  const { user } = useAuthStore();
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     name: user?.name || '',
@@ -42,13 +42,10 @@ export const Profile: React.FC = () => {
         updateData.password = formData.password;
       }
 
-      const response = await authService.updateProfile(updateData);
+      await authService.updateProfile(updateData);
       
-      // Update store user state (keep token same)
-      const token = localStorage.getItem('token');
-      if (token) {
-        login({ user: response.user, token });
-      }
+      // Refresh user profile state
+      await useAuthStore.getState().initAuth();
       
       toast.success('Profile updated successfully');
       setFormData({ ...formData, password: '', confirmPassword: '' });

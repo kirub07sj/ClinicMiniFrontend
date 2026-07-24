@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, AlertCircle, Loader2 } from 'lucide-react';
-import { DoctorWithCount } from '../types';
+import { X, AlertCircle, Loader2, Search } from 'lucide-react';
+import { DoctorWithCount, Patient, Appointment } from '../types';
 import { cn } from '../utils/cn';
 import DoctorFolderCard from './DoctorFolderCard';
 
 export interface RegistrationPayload {
-  patient: {
+  isExistingPatient: boolean;
+  patientId?: string;
+  patient?: {
     name: string;
     phone: string;
     address: string;
@@ -21,6 +23,8 @@ interface Props {
   isOpen: boolean;
   onClose: () => void;
   doctors: DoctorWithCount[];
+  patients?: Patient[];
+  appointments?: Appointment[];
   onSubmit: (payload: RegistrationPayload) => Promise<void>;
 }
 
@@ -30,7 +34,11 @@ const ageToDateOfBirth = (age: number): string => {
   return new Date(now.getFullYear() - age, now.getMonth(), now.getDate()).toISOString();
 };
 
-export const PatientRegistrationModal: React.FC<Props> = ({ isOpen, onClose, doctors, onSubmit }) => {
+export const PatientRegistrationModal: React.FC<Props> = ({ isOpen, onClose, doctors, patients = [], appointments = [], onSubmit }) => {
+  const [activeTab, setActiveTab] = useState<'new' | 'existing'>('new');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedPatientId, setSelectedPatientId] = useState('');
+
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
@@ -46,10 +54,29 @@ export const PatientRegistrationModal: React.FC<Props> = ({ isOpen, onClose, doc
 
   // Default-select the most available doctor (doctors arrive sorted fewest-first)
   useEffect(() => {
-    if (isOpen && !doctorId && doctors.length > 0) {
+    if (isOpen && !doctorId && doctors.length > 0 && activeTab === 'new') {
       setDoctorId(doctors[0]._id || doctors[0].id);
     }
-  }, [isOpen, doctors, doctorId]);
+  }, [isOpen, doctors, doctorId, activeTab]);
+
+  // When an existing patient is selected, attempt to find their last doctor
+  useEffect(() => {
+    if (activeTab === 'existing' && selectedPatientId && appointments.length > 0) {
+      const patientApps = appointments.filter(a => {
+        const patientId = typeof a.patientId === 'string' ? a.patientId : (a.patientId as any)?._id;
+        return patientId === selectedPatientId;
+      });
+      // Sort by date descending
+      patientApps.sort((a, b) => new Date(b.appointmentDate).getTime() - new Date(a.appointmentDate).getTime());
+      
+      if (patientApps.length > 0 && patientApps[0].doctorId) {
+        const lastDocId = (patientApps[0].doctorId as any)._id || patientApps[0].doctorId;
+        if (doctors.some(d => (d._id || d.id) === lastDocId)) {
+          setDoctorId(lastDocId);
+        }
+      }
+    }
+  }, [selectedPatientId, activeTab, appointments, doctors]);
 
   const selectedDoctor = doctors.find((d) => (d._id || d.id) === doctorId);
 
@@ -63,13 +90,17 @@ export const PatientRegistrationModal: React.FC<Props> = ({ isOpen, onClose, doc
 
   const validate = (): boolean => {
     const e: Record<string, string> = {};
-    if (!firstName.trim()) e.firstName = 'First name is required';
-    if (!lastName.trim()) e.lastName = 'Last name is required';
-    if (!phone.trim()) e.phone = 'Phone number is required';
-    else if (!/^[0-9+\-() ]{7,15}$/.test(phone.trim())) e.phone = 'Enter a valid phone number';
-    const ageNum = Number(age);
-    if (!age.trim()) e.age = 'Age is required';
-    else if (!Number.isFinite(ageNum) || ageNum <= 0 || ageNum > 120) e.age = 'Enter a valid age';
+    if (activeTab === 'new') {
+      if (!firstName.trim()) e.firstName = 'First name is required';
+      if (!lastName.trim()) e.lastName = 'Last name is required';
+      if (!phone.trim()) e.phone = 'Phone number is required';
+      else if (!/^[0-9+\-() ]{7,15}$/.test(phone.trim())) e.phone = 'Enter a valid phone number';
+      const ageNum = Number(age);
+      if (!age.trim()) e.age = 'Age is required';
+      else if (!Number.isFinite(ageNum) || ageNum <= 0 || ageNum > 120) e.age = 'Enter a valid age';
+    } else {
+      if (!selectedPatientId) e.patient = 'Please select an existing patient';
+    }
     if (!doctorId) e.doctorId = 'Select a doctor to assign';
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -84,6 +115,9 @@ export const PatientRegistrationModal: React.FC<Props> = ({ isOpen, onClose, doc
     setGender('male');
     setDoctorId('');
     setAdditionalInfo('');
+    setSelectedPatientId('');
+    setSearchQuery('');
+    setActiveTab('new');
     setErrors({});
   };
 
@@ -95,13 +129,15 @@ export const PatientRegistrationModal: React.FC<Props> = ({ isOpen, onClose, doc
     setSubmitting(true);
     try {
       await onSubmit({
-        patient: {
+        isExistingPatient: activeTab === 'existing',
+        patientId: activeTab === 'existing' ? selectedPatientId : undefined,
+        patient: activeTab === 'new' ? {
           name: `${firstName.trim()} ${lastName.trim()}`.trim(),
           phone: phone.trim(),
           address: address.trim(),
           gender,
           dateOfBirth: ageToDateOfBirth(Number(age)),
-        },
+        } : undefined,
         doctorId,
         additionalInfo: additionalInfo.trim(),
       });
@@ -155,80 +191,134 @@ export const PatientRegistrationModal: React.FC<Props> = ({ isOpen, onClose, doc
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                 {/* Left: Patient Information */}
-                <div className="bg-white rounded-2xl p-6 space-y-4">
-                  <h4 className="font-bold text-slate-800">Patient Information</h4>
-
-                  <div>
-                    <label className="block text-sm text-slate-500 mb-1.5">First Name</label>
-                    <input
-                      type="text"
-                      value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
-                      className={inputClasses(!!errors.firstName)}
-                    />
-                    {errors.firstName && <p className="text-rose-500 text-xs mt-1">{errors.firstName}</p>}
+                <div className="bg-white rounded-2xl p-6 space-y-4 flex flex-col min-h-[550px] max-h-[80vh] overflow-hidden">
+                  <div className="flex items-center gap-2 mb-2 p-1 bg-slate-100 rounded-xl shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('new')}
+                      className={cn("flex-1 py-1.5 text-sm font-bold rounded-lg transition-colors", activeTab === 'new' ? 'bg-white text-sky-600 shadow-sm' : 'text-slate-500 hover:text-slate-700')}
+                    >
+                      New Patient
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('existing')}
+                      className={cn("flex-1 py-1.5 text-sm font-bold rounded-lg transition-colors", activeTab === 'existing' ? 'bg-white text-sky-600 shadow-sm' : 'text-slate-500 hover:text-slate-700')}
+                    >
+                      Existing Patient
+                    </button>
                   </div>
 
-                  <div>
-                    <label className="block text-sm text-slate-500 mb-1.5">Last Name</label>
-                    <input
-                      type="text"
-                      value={lastName}
-                      onChange={(e) => setLastName(e.target.value)}
-                      className={inputClasses(!!errors.lastName)}
-                    />
-                    {errors.lastName && <p className="text-rose-500 text-xs mt-1">{errors.lastName}</p>}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm text-slate-500 mb-1.5">Phone Number</label>
-                    <input
-                      type="text"
-                      value={phone}
-                      onChange={(e) => {
-                        if (/^[0-9+\-() ]*$/.test(e.target.value)) setPhone(e.target.value);
-                      }}
-                      className={inputClasses(!!errors.phone)}
-                    />
-                    {errors.phone && <p className="text-rose-500 text-xs mt-1">{errors.phone}</p>}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm text-slate-500 mb-1.5">Address (Optional)</label>
-                    <input
-                      type="text"
-                      value={address}
-                      onChange={(e) => setAddress(e.target.value)}
-                      className={inputClasses(false)}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm text-slate-500 mb-1.5">Age</label>
-                      <input
-                        type="number"
-                        min={0}
-                        max={120}
-                        value={age}
-                        onChange={(e) => setAge(e.target.value)}
-                        className={inputClasses(!!errors.age)}
-                      />
-                      {errors.age && <p className="text-rose-500 text-xs mt-1">{errors.age}</p>}
+                  {activeTab === 'existing' ? (
+                    <div className="space-y-4 flex flex-col flex-1 overflow-hidden">
+                      <h4 className="font-bold text-slate-800 shrink-0">Select Existing Patient</h4>
+                      <div className="relative shrink-0">
+                        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
+                        <input
+                          type="text"
+                          placeholder="Search name, phone, or ID..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className={cn(inputClasses(false), "pl-9")}
+                        />
+                      </div>
+                      <div className="flex-1 overflow-y-auto space-y-2 scrollbar-hide pr-1 min-h-0">
+                        {patients.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.phone.includes(searchQuery) || p.patientId.toLowerCase().includes(searchQuery.toLowerCase())).map(p => (
+                          <div 
+                            key={p._id} 
+                            onClick={() => setSelectedPatientId(p._id)}
+                            className={cn("p-3 rounded-xl border cursor-pointer transition-colors", selectedPatientId === p._id ? 'border-sky-500 bg-sky-50' : 'border-slate-100 hover:border-sky-200')}
+                          >
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <p className="font-bold text-slate-800 text-sm">{p.name}</p>
+                                <p className="text-xs text-slate-500">{p.phone}</p>
+                              </div>
+                              <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">{p.patientId}</span>
+                            </div>
+                          </div>
+                        ))}
+                        {patients.length === 0 && <p className="text-sm text-slate-400 text-center py-4">No existing patients found.</p>}
+                      </div>
+                      {errors.patient && <p className="text-rose-500 text-xs mt-1 shrink-0">{errors.patient}</p>}
                     </div>
-                    <div>
-                      <label className="block text-sm text-slate-500 mb-1.5">Gender</label>
-                      <select
-                        value={gender}
-                        onChange={(e) => setGender(e.target.value as any)}
-                        className={inputClasses(false)}
-                      >
-                        <option value="male">Male</option>
-                        <option value="female">Female</option>
-                        <option value="other">Other</option>
-                      </select>
+                  ) : (
+                    <div className="space-y-4 overflow-y-auto scrollbar-hide pr-1">
+                      <h4 className="font-bold text-slate-800">Patient Information</h4>
+
+                      <div>
+                        <label className="block text-sm text-slate-500 mb-1.5">First Name</label>
+                        <input
+                          type="text"
+                          value={firstName}
+                          onChange={(e) => setFirstName(e.target.value)}
+                          className={inputClasses(!!errors.firstName)}
+                        />
+                        {errors.firstName && <p className="text-rose-500 text-xs mt-1">{errors.firstName}</p>}
+                      </div>
+
+                      <div>
+                        <label className="block text-sm text-slate-500 mb-1.5">Last Name</label>
+                        <input
+                          type="text"
+                          value={lastName}
+                          onChange={(e) => setLastName(e.target.value)}
+                          className={inputClasses(!!errors.lastName)}
+                        />
+                        {errors.lastName && <p className="text-rose-500 text-xs mt-1">{errors.lastName}</p>}
+                      </div>
+
+                      <div>
+                        <label className="block text-sm text-slate-500 mb-1.5">Phone Number</label>
+                        <input
+                          type="text"
+                          value={phone}
+                          onChange={(e) => {
+                            if (/^[0-9+\-() ]*$/.test(e.target.value)) setPhone(e.target.value);
+                          }}
+                          className={inputClasses(!!errors.phone)}
+                        />
+                        {errors.phone && <p className="text-rose-500 text-xs mt-1">{errors.phone}</p>}
+                      </div>
+
+                      <div>
+                        <label className="block text-sm text-slate-500 mb-1.5">Address (Optional)</label>
+                        <input
+                          type="text"
+                          value={address}
+                          onChange={(e) => setAddress(e.target.value)}
+                          className={inputClasses(false)}
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm text-slate-500 mb-1.5">Age</label>
+                          <input
+                            type="number"
+                            min={0}
+                            max={120}
+                            value={age}
+                            onChange={(e) => setAge(e.target.value)}
+                            className={inputClasses(!!errors.age)}
+                          />
+                          {errors.age && <p className="text-rose-500 text-xs mt-1">{errors.age}</p>}
+                        </div>
+                        <div>
+                          <label className="block text-sm text-slate-500 mb-1.5">Gender</label>
+                          <select
+                            value={gender}
+                            onChange={(e) => setGender(e.target.value as any)}
+                            className={inputClasses(false)}
+                          >
+                            <option value="male">Male</option>
+                            <option value="female">Female</option>
+                            <option value="other">Other</option>
+                          </select>
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
 
                 {/* Right column */}
