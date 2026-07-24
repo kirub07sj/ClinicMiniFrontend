@@ -147,7 +147,7 @@ export const AdminDashboard: React.FC = () => {
         ) : filteredStaff.length === 0 ? (
           <p className="text-slate-400 text-center py-8">No staff members found.</p>
         ) : (
-          <div className="overflow-x-auto overflow-y-auto max-h-[400px]">
+          <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="sticky top-0 bg-slate-50 z-10 shadow-sm">
                 <tr className="text-slate-500 text-xs uppercase">
